@@ -83,7 +83,7 @@ class AsignedAsset(SerializerMixin, db.Model):
     company = db.relationship('Company', back_populates='asigned_assets')
 
 
-class DepartmentalAssets(SerializerMixin, db.Model):
+class DepartmentalAsset(SerializerMixin, db.Model):
     __tablename__ = 'departmental_assets'
     serializer_rules = ('-department.departmental_assets', '-company.departmental_assets')
 
@@ -96,7 +96,7 @@ class DepartmentalAssets(SerializerMixin, db.Model):
     department = db.relationship('Department', back_populates='departmental_assets')
     company = db.relationship('Company', back_populates='departmental_assets')
 
-class Users(SerializerMixin, db.Model):
+class User(SerializerMixin, db.Model):
     __tablename__ = "users"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -111,7 +111,7 @@ class Users(SerializerMixin, db.Model):
     company = db.relationship('Company', back_populates='users')
     department = db.relationship('Department', back_populates='users')
     asigned_assets = db.relationship('AsignedAsset', back_populates='user', cascade='all,delete-orphan')
-
+    requests = db.relationship('Requests', back_populates='user', cascade='all,delete-orphan')
     @hybrid_property
     def hash_password(self):
         raise AttributeError('You cannot access the password directly')
@@ -122,5 +122,21 @@ class Users(SerializerMixin, db.Model):
 
     def authenticate(self, password):
         return bcrypt.check_password_hash(self._hash_password, password)
+    
+    
 
+class Request(SerializerMixin, db.Model):
+    __tablename__ = 'requests'
+    serializer_rules = ('-user.requests',)
+
+    id = db.Column(db.Integer, primary_key=True)
+    reason = db.Column(db.String, nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+    urgency = db.Column(db.String, nullable=False)
+    request_type = db.Column(db.String, nullable=False)
+    status = db.Column(db.String, default='pending')
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    
+    user = db.relationship('Users', back_populates='requests')
+   
 
