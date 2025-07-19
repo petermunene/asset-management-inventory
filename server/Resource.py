@@ -1,8 +1,8 @@
 from flask import request, jsonify
 from flask_restful import Resource
 from app import db
-from models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request
-from flask_jwt_extended import create_access_token, create_refresh_token
+from models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request,SuperAdmin
+from flask_jwt_extended import create_access_token, create_refresh_token , jwt_required, get_jwt_identity
 
 
 def get_json_data(*fields):
@@ -23,36 +23,52 @@ class CompanySignup(Resource):
             return company.to_dict(), 201
         except Exception as e:
             return {'error': str(e)}, 400
+    @jwt_required()
+    def patch(self,id):
+        try:
+            company = Company.query.get(id)
+            if not company:
+                return {'error': 'Company not found'}, 404
 
-    def patch(self, id):
-        company = Company.query.get(id)
-        if not company:
-            return {'error': 'Company not found'}, 404
-
-        data = request.get_json()
-        for field in ['name', 'email', 'logo_url']:
-            if field in data:
-                setattr(company, field, data[field])
-        db.session.commit()
-        return company.to_dict(), 200
-
+            data = request.get_json()
+            for field in ['name', 'email', 'logo_url']:
+                if field in data:
+                    setattr(company, field, data[field])
+            db.session.commit()
+            return company.to_dict(), 200
+        except Exception as e:
+            return {'error': str(e)}, 400    
+    @jwt_required()
     def delete(self, id):
-        company = Company.query.get(id)
-        if not company:
-            return {'error': 'Company not found'}, 404
+        try:
+            company = Company.query.get(id)
+            if not company:
+                return {'error': 'Company not found'}, 404
 
-        db.session.delete(company)
-        db.session.commit()
-        return {}, 204
-    
-    def get(self, id):
-        company = Company.query.get(id)
-        if not company:
-            return {'error': 'Company not found'}, 404
-        return company.to_dict(), 200
+            db.session.delete(company)
+            db.session.commit()
+            return {}, 204
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
+    def get(self):
+        try:
+            data = get_json_data('name')
+            company = Company.query.filter_by(name=data['name']).first()    
+            if not company:
+                return {'error': 'Company not found'}, 404
+            return company.to_dict(), 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
     def get_all(self):
-        companies = Company.query.all()
-        return [company.to_dict() for company in companies], 200
+        try:
+            companies = Company.query.all()
+            if not companies:
+                return [],200
+            return [company.to_dict() for company in companies], 200
+        except Exception as e:  
+            return {'error': str(e)}, 400
 
 
 class UserSignup(Resource):
@@ -72,43 +88,58 @@ class UserSignup(Resource):
             return user.to_dict(), 201
         except Exception as e:
             return {'error': str(e)}, 400
-
+    @jwt_required()
     def patch(self, id):
-        user = User.query.get(id)
-        if not user:
-            return {'error': 'User not found'}, 404
+        try:
+            user = User.query.get(id)
+            if not user:
+                return {'error': 'User not found'}, 404
 
-        data = request.get_json()
-        for field in ['username', 'email', 'role', 'company_id', 'department_id']:
-            if field in data:
-                setattr(user, field, data[field])
-        if 'password' in data:
-            user.hash_password = data['password']
-        db.session.commit()
-        return user.to_dict(), 200
-
+            data = request.get_json()
+            for field in ['username', 'email', 'role', 'company_id', 'department_id']:
+                if field in data:
+                    setattr(user, field, data[field])
+            if 'password' in data:
+                user.hash_password = data['password']
+            db.session.commit()
+            return user.to_dict(), 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
     def delete(self, id):
-        user = User.query.get(id)
-        if not user:
-            return {'error': 'User not found'}, 404
-        db.session.delete(user)
-        db.session.commit()
-        return {}, 204
-    
+        try:
+            user = User.query.get(id)
+            if not user:
+                return {'error': 'User not found'}, 404
+            db.session.delete(user)
+            db.session.commit()
+            return {}, 204
+        except Exception as e:      
+            return {'error': str(e)}, 400
+    @jwt_required()
     def get(self):
-        data = get_json_data('username')
-        username = data['username']
-        user = User.query.filter(user.username == username).first()
-        if not user:
-            return {'error': 'User not found'}, 404
-        return user.to_dict(), 200
-    
+        try:
+            data = get_json_data('username')
+            username = data['username']
+            user = User.query.filter_by(username=username).first()
+            if not user:
+                return {'error': 'User not found'}, 404
+            return user.to_dict(), 200
+        except Exception as e:  
+            return {'error': str(e)}, 400
+    @jwt_required()
     def get_all(self):
-        users = User.query.all()
-        return [user.to_dict() for user in users], 200
+        try:
+            users = User.query.all()
+            if not users:
+                return [], 200
+            return [user.to_dict() for user in users], 200
+        except Exception as e:
+            return {'error': str(e)}, 400
 
 
 class DepartmentResource(Resource):
+    @jwt_required()
     def post(self):
         try:
             data = get_json_data('name', 'company_id')
@@ -118,27 +149,40 @@ class DepartmentResource(Resource):
             return dept.to_dict(), 201
         except Exception as e:
             return {'error': str(e)}, 400
-
+    @jwt_required()
     def delete(self, id):
-        dept = Department.query.get(id)
-        if not dept:
-            return {'error': 'Department not found'}, 404
-        db.session.delete(dept)
-        db.session.commit()
-        return {}, 204
-    
-    def get(self, id):
-        dept = Department.query.get(id)
-        if not dept:
-            return {'error': 'Department not found'}, 404
-        return dept.to_dict(), 200
-    
+        try:
+            dept = Department.query.get(id)
+            if not dept:
+                return {'error': 'Department not found'}, 404
+            db.session.delete(dept)
+            db.session.commit()
+            return {}, 204
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
+    def get(self):
+        try:
+            data = get_json_data('name')
+            dept = Department.query.filter_by(name=data['name']).first()
+            if not dept:
+                return {'error': 'Department not found'}, 404
+            return dept.to_dict(), 200
+        except Exception as e:  
+            return {'error': str(e)}, 400
+    @jwt_required()
     def get_all(self):
-        departments = Department.query.all()
-        return [dept.to_dict() for dept in departments], 200
+        try:
+            departments = Department.query.all()
+            if not departments:
+                return [], 200
+            return [dept.to_dict() for dept in departments], 200
+        except Exception as e:
+            return {'error': str(e)}, 400
 
 
 class CompanyAssetResource(Resource):
+    @jwt_required()
     def post(self):
         try:
             data = get_json_data('name', 'category', 'company_id')
@@ -148,36 +192,48 @@ class CompanyAssetResource(Resource):
             return asset.to_dict(), 201
         except Exception as e:
             return {'error': str(e)}, 400
-
+    @jwt_required()
     def patch(self, id):
-        asset = Asset.query.get(id)
-        if not asset:
-            return {'error': 'Asset not found'}, 404
-        data = request.get_json()
-        for field in ['name', 'category']:
-            if field in data:
-                setattr(asset, field, data[field])
-        db.session.commit()
-        return asset.to_dict(), 200
-
+        try:
+            asset = Asset.query.get(id)
+            if not asset:
+                return {'error': 'Asset not found'}, 404
+            data = request.get_json()
+            for field in ['name', 'category']:
+                if field in data:
+                    setattr(asset, field, data[field])
+            db.session.commit()
+            return asset.to_dict(), 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
     def delete(self, id):
-        asset = Asset.query.get(id)
-        if not asset:
-            return {'error': 'Asset not found'}, 404
-        db.session.delete(asset)
-        db.session.commit()
-        return {}, 204
-
+        try:
+            asset = Asset.query.get(id)
+            if not asset:
+                return {'error': 'Asset not found'}, 404
+            db.session.delete(asset)
+            db.session.commit()
+            return {}, 204
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
     def get(self):
-        data = get_json_data('name')
-        company = Company.query.filter_by(name=data['name']).first()
-        if not company:
-            return {'error': 'Company not found'}, 404
-        assets = company.assets
-        return [asset.to_dict() for asset in assets], 200
+        try:
+            data = get_json_data('name')
+            company = Company.query.filter_by(name=data['name']).first()
+            if not company:
+                return {'error': 'Company not found'}, 404
+            assets = company.assets
+            if not assets:
+                return [],200  
+            return [asset.to_dict() for asset in assets], 200
+        except Exception as e:
+            return {'error': str(e)}, 400   
     
 
 class DepartmentAssetResource(Resource):
+    @jwt_required()
     def post(self):
         try:
             data = get_json_data('name', 'category', 'company_id', 'department_id')
@@ -192,36 +248,47 @@ class DepartmentAssetResource(Resource):
             return d_asset.to_dict(), 201
         except Exception as e:
             return {'error': str(e)}, 400
-
+    @jwt_required()
     def patch(self, id):
-        d_asset = DepartmentalAsset.query.get(id)
-        if not d_asset:
-            return {'error': 'Department asset not found'}, 404
-        data = request.get_json()
-        for field in ['name', 'category']:
-            if field in data:
-                setattr(d_asset, field, data[field])
-        db.session.commit()
-        return d_asset.to_dict(), 200
-
+        try:
+            d_asset = DepartmentalAsset.query.get(id)
+            if not d_asset:
+                return {'error': 'Department asset not found'}, 404
+            data = request.get_json()
+            for field in ['name', 'category']:
+                if field in data:
+                    setattr(d_asset, field, data[field])
+            db.session.commit()
+            return d_asset.to_dict(), 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
     def delete(self, id):
-        d_asset = DepartmentalAsset.query.get(id)
-        if not d_asset:
-            return {'error': 'Department asset not found'}, 404
-        db.session.delete(d_asset)
-        db.session.commit()
-        return {}, 204
-
+        try:
+            d_asset = DepartmentalAsset.query.get(id)
+            if not d_asset:
+                return {'error': 'Department asset not found'}, 404
+            db.session.delete(d_asset)
+            db.session.commit()
+            return {}, 204
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
     def get(self):
-        data = get_json_data('name')
-        department = Department.query.filter_by(name=data['name']).first()
-        if not department:
-            return {'error': 'Department not found'}, 404
-        assets = department.assets
-        return [asset.to_dict() for asset in assets], 200
-    
+        try:
+            data = get_json_data('name')
+            department = Department.query.filter_by(name=data['name']).first()
+            if not department:
+                return {'error': 'Department not found'}, 404
+            assets = department.assets
+            if not assets:  
+                return [], 200
+            return [asset.to_dict() for asset in assets], 200
+        except Exception as e:
+            return {'error': str(e)}, 400
     
 class UserAssetResource(Resource):
+    @jwt_required()
     def post(self):
         try:
             data = get_json_data('name', 'category', 'user_id', 'company_id')
@@ -236,82 +303,154 @@ class UserAssetResource(Resource):
             return assigned.to_dict(), 201
         except Exception as e:
             return {'error': str(e)}, 400
-
+    @jwt_required()
     def patch(self, id):
-        asset = AsignedAsset.query.get(id)
-        if not asset:
-            return {'error': 'User asset not found'}, 404
-        data = request.get_json()
-        for field in ['name', 'category']:
-            if field in data:
-                setattr(asset, field, data[field])
-        db.session.commit()
-        return asset.to_dict(), 200
-
+        try:
+            asset = AsignedAsset.query.get(id)
+            if not asset:
+                return {'error': 'User asset not found'}, 404
+            data = request.get_json()
+            for field in ['name', 'category']:
+                if field in data:
+                    setattr(asset, field, data[field])
+            db.session.commit()
+            return asset.to_dict(), 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+    @jwt_required()
     def delete(self, id):
-        asset = AsignedAsset.query.get(id)
-        if not asset:
-            return {'error': 'User asset not found'}, 404
-        db.session.delete(asset)
-        db.session.commit()
-        return {}, 204
-    
+        try:
+            asset = AsignedAsset.query.get(id)
+            if not asset:
+                return {'error': 'User asset not found'}, 404
+            db.session.delete(asset)
+            db.session.commit()
+            return {}, 204
+        except Exception as e:  
+            return {'error': str(e)}, 400
+    @jwt_required()
     def get(self):
-        data = get_json_data('name')
-        user = User.query.filter_by(name=data['name']).first()
-        if not user:
-            return {'error': 'User not found'}, 404
-        assets = user.assets
-        return [asset.to_dict() for asset in assets], 200
+        try:
+            data = get_json_data('name')
+            user = User.query.filter_by(username=data['name']).first()
+            if not user:
+                return {'error': 'User not found'}, 404
+            assets = user.assets
+            if not assets:
+                return [], 200
+            return [asset.to_dict() for asset in assets], 200
+        except Exception as e:
+            return {'error': str(e)}, 400
 
 
 class RequestAssetResource(Resource):
+    @jwt_required()
     def post(self):
         try:
-            data = get_json_data('user_id', 'asset_name', 'reason')
-            # This would typically go to a Request table (not in current models).
-            return {
-                'message': 'Asset request recorded (mock)',
-                'data': data
-            }, 201
+            data = request.get_json()
+            for field in ['reason', 'quantity', 'urgency', 'request_type']:
+                if field not in data:
+                    return {'error': f'Missing field: {field}'}, 400
+
+            user_id = get_jwt_identity()
+            new_request = Request(
+                reason=data['reason'],
+                quantity=data['quantity'],
+                urgency=data['urgency'],
+                request_type=data['request_type'],
+                user_id=user_id
+            )
+            db.session.add(new_request)
+            db.session.commit()
+
+            return new_request.to_dict(), 201
         except Exception as e:
+            db.session.rollback()
             return {'error': str(e)}, 400
-    
+    @jwt_required()
     def get(self):
-      data = get_json_data('username')  
-      user = User.query.filter_by(username=data['username']).first()
-      if not user:
-            return {'error': 'User not found'}, 404
-      requests = user.requests
-      return [request.to_dict() for request in requests], 200
+        try:
+            data = get_json_data('username')  
+            user = User.query.filter_by(username=data['username']).first()
+            if not user:
+                    return {'error': 'User not found'}, 404
+            requests = user.requests
+            if not requests:
+                return [], 200
+            return [request.to_dict() for request in requests], 200
+        except Exception as e:  
+            return {'error': str(e)}, 400
 
 class UserLogin(Resource):
-    def get(self):
+    def post(self):
         try:
             data = get_json_data('username', 'password')
             user = User.query.filter_by(username=data['username']).first()
             if user and user.authenticate(data['password']):
-                access_token = create_access_token(identity=user.id)
+                if not user.company or not user.company.is_approved:
+                    return {'error': 'Company not approved'}, 403
+                access_token = create_access_token(identity=user.id, additional_claims={'role': user.role})
                 refresh_token = create_refresh_token(identity=user.id)
-                return {'access_token': access_token}, 200
-            return {'error': 'Invalid credentials'}, 401
+                return {
+                    'access_token': access_token,
+                    'refresh_token': refresh_token,
+                    'user': user.to_dict()
+                }, 200
+            return {'error': 'Invalid username or password'}, 401
         except Exception as e:
             return {'error': str(e)}, 400
-        
 class SuperAdminResource(Resource):
     def post(self):
         try:
             data = get_json_data('username', 'password')
-            if data['role'] != 'superadmin':
-                return {'error': 'Only superadmin can create superadmin accounts'}, 403
-            user = User(
-                username=data['username'],
-                password=data['password']
-                
+            superAdmin = SuperAdmin(
+                username=data['username'],   
             )
-            user.hash_password = data['password']
-            db.session.add(user)
+            superAdmin.hash_password = data['password']
+            db.session.add(superAdmin)
             db.session.commit()
-            return user.to_dict(), 201
+            return superAdmin.to_dict(), 201
         except Exception as e:
             return {'error': str(e)}, 400
+    @jwt_required()
+    def patch(self):
+        try:
+            data = get_json_data('company_name')
+            company = Company.query.filter_by(name=data['company_name']).first()
+            if not company:
+                return {'error': 'Company not found'}, 404
+            company.is_approved = not company.is_approved
+            db.session.commit()
+            status = "approved" if company.is_approved else "disapproved"
+            return {'message': f'Company {status} successfully'}, 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+
+class CompaniesGrouped(Resource):
+    @jwt_required()
+    def get(self):
+        try:
+            approved = Company.query.filter_by(is_approved=True).all()
+            pending = Company.query.filter_by(is_approved=False).all()
+
+            return {
+                'approved_companies': [
+                    {
+                        'id': c.id,
+                        'name': c.name,
+                        'email': c.email,
+                        'logo_url': c.logo_url
+                    } for c in approved
+                ] if approved else [],
+                'pending_companies': [
+                    {
+                        'id': c.id,
+                        'name': c.name,
+                        'email': c.email,
+                        'logo_url': c.logo_url
+                    } for c in pending
+                ] if pending else []
+            }, 200
+
+        except Exception as e:
+            return {'error': str(e)}, 500

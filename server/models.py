@@ -37,7 +37,7 @@ class Company(SerializerMixin, db.Model):
     email = db.Column(db.String)
     name = db.Column(db.String, nullable=False, unique=True)
     logo_url = db.Column(db.String, nullable=False)
-
+    is_approved = db.Column(db.Boolean, default=False)
     users = db.relationship("Users", back_populates='company', cascade='all,delete-orphan')
     departments = db.relationship('Department', back_populates='company', cascade='all,delete-orphan')
     assets = db.relationship('Asset', back_populates='company', cascade='all,delete-orphan')

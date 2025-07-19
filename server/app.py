@@ -21,3 +21,20 @@ migrate = Migrate(app,db)
 bcrypt = Bcrypt(app)
 CORS (app , supports_credentials=True)
 
+
+from resources import (
+    CompanySignup, UserSignup, DepartmentResource, CompanyAssetResource,
+    DepartmentAssetResource, UserAssetResource, RequestAssetResource,
+    UserLogin, SuperAdminResource, CompaniesGrouped
+)
+
+api.add_resource(CompanySignup, '/companies/signup', '/companies/<int:id>', '/companies/get', '/companies/all')
+api.add_resource(UserSignup, '/users/signup', '/users/<int:id>', '/users/get', '/users/all')
+api.add_resource(UserLogin, '/users/login')
+api.add_resource(DepartmentResource, '/departments', '/departments/<int:id>', '/departments/get', '/departments/all')
+api.add_resource(CompanyAssetResource, '/company-assets', '/company-assets/<int:id>', '/company-assets/get')
+api.add_resource(DepartmentAssetResource, '/department-assets', '/department-assets/<int:id>', '/department-assets/get')
+api.add_resource(UserAssetResource, '/user-assets', '/user-assets/<int:id>', '/user-assets/get')
+api.add_resource(RequestAssetResource, '/asset-requests', '/asset-requests/get')
+api.add_resource(SuperAdminResource, '/superadmin/signup', '/superadmin/approve')
+api.add_resource(CompaniesGrouped, '/companies/grouped')
