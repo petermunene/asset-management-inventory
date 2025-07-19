@@ -1,9 +1,12 @@
-from app import db,bcrypt
+
+
+#models.py
+
+from server.app import db,bcrypt
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy import Numeric
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy.ext.hybrid import hybrid_property
-from app import db, bcrypt
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy import ForeignKey
@@ -64,6 +67,7 @@ class Asset(SerializerMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     category = db.Column(db.String)
+    image_url = db.Column(db.String)
     company_id = db.Column(db.Integer, db.ForeignKey('companies.id', ondelete='CASCADE'))
 
     company = db.relationship('Company', back_populates='assets')
@@ -76,6 +80,7 @@ class AsignedAsset(SerializerMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     category = db.Column(db.String)
+    image_url = db.Column(db.String)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'))
     company_id = db.Column(db.Integer, db.ForeignKey('companies.id', ondelete='CASCADE'))
 
@@ -90,6 +95,7 @@ class DepartmentalAsset(SerializerMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
     category = db.Column(db.String)
+    image_url= db.Column(db.String)
     company_id = db.Column(db.Integer, db.ForeignKey('companies.id', ondelete='CASCADE'))
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id', ondelete='CASCADE'))
 
@@ -106,7 +112,7 @@ class User(SerializerMixin, db.Model):
     role = db.Column(db.String, nullable=False)
     company_id = db.Column(db.Integer, db.ForeignKey("companies.id", ondelete='CASCADE'), nullable=True)
     department_id = db.Column(db.Integer, db.ForeignKey('departments.id', ondelete='CASCADE'), nullable=True)
-    asigned_asset_id = db.Column(db.Integer, db.ForeignKey('asigned_assets.id'), nullable=True)
+    
 
     company = db.relationship('Company', back_populates='users')
     department = db.relationship('Department', back_populates='users')

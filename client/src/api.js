@@ -1,3 +1,7 @@
+
+
+//api.js
+
 const API_BASE = "http://localhost:5000";
 
 async function request(endpoint, method = "GET", body = null) {
@@ -48,8 +52,8 @@ export function companySignup(companyData) {
   return request("/companies/signup", "POST", companyData);
 }
 
-export function fetchCompany(id) {
-  return request(`/companies/${id}`);
+export function fetchCompany(name) {
+  return request(`/companies/get?name=${encodeURIComponent(name)}`);
 }
 
 export function updateCompany(id, updates) {
@@ -73,8 +77,8 @@ export function userSignup(userData) {
   return request("/users/signup", "POST", userData);
 }
 
-export function fetchUser(id) {
-  return request(`/users/${id}`);
+export function fetchUser(name) {
+  return request(`/users/get?name=${encodeURIComponent(name)}`);
 }
 
 export function updateUser(id, updates) {
@@ -94,8 +98,8 @@ export function createDepartment(department) {
   return request("/departments", "POST", department);
 }
 
-export function fetchDepartment(id) {
-  return request(`/departments/${id}`);
+export function fetchDepartment(name) {
+  return request(`/departments/get?name=${encodeURIComponent(name)}`);
 }
 
 export function updateDepartment(id, updates) {
@@ -115,8 +119,8 @@ export function createCompanyAsset(asset) {
   return request("/company-assets", "POST", asset);
 }
 
-export function fetchCompanyAsset(id) {
-  return request(`/company-assets/${id}`);
+export function fetchCompanyAsset(name) {
+  return request(`/company-assets/get?name=${encodeURIComponent(name)}`);
 }
 
 export function updateCompanyAsset(id, updates) {
@@ -136,8 +140,8 @@ export function createDepartmentAsset(asset) {
   return request("/department-assets", "POST", asset);
 }
 
-export function fetchDepartmentAsset(id) {
-  return request(`/department-assets/${id}`);
+export function fetchDepartmentAsset(name) {
+  return request(`/department-assets/get?name=${encodeURIComponent(name)}`);
 }
 
 export function updateDepartmentAsset(id, updates) {
@@ -157,8 +161,8 @@ export function createUserAsset(asset) {
   return request("/user-assets", "POST", asset);
 }
 
-export function fetchUserAsset(id) {
-  return request(`/user-assets/${id}`);
+export function fetchUserAsset(name) {
+  return request(`/user-assets/get?name=${encodeURIComponent(name)}`);
 }
 
 export function updateUserAsset(id, updates) {

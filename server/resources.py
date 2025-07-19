@@ -1,28 +1,44 @@
+#resources.py
+import cloudinary.uploader
 from flask import request, jsonify
 from flask_restful import Resource
-from app import db
-from models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request,SuperAdmin
+from server.app import db
+from server.models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request,SuperAdmin
 from flask_jwt_extended import create_access_token, create_refresh_token , jwt_required, get_jwt_identity
 
 
 def get_json_data(*fields):
-    data = request.get_json()
-    for field in fields:
-        if field not in data:
-            raise ValueError(f"Missing field: {field}")
+    data = request.get_json() or {}
+    missing = [f for f in fields if f not in data]
+    if missing:
+        raise ValueError(f"Missing fields: {', '.join(missing)}")
     return data
 
 
-class CompanySignup(Resource):
+from flask import request
+import cloudinary.uploader
+
+class CompanyResource(Resource):
     def post(self):
         try:
-            data = get_json_data('name', 'email', 'logo_url')
-            company = Company(name=data['name'], email=data['email'], logo_url=data['logo_url'])
+            name = request.form.get('name')
+            email = request.form.get('email')
+            logo_file = request.files.get('logo_url')  
+
+            if not logo_file:
+                return {'error': 'Logo file is required'}, 400
+
+            upload_result = cloudinary.uploader.upload(logo_file)
+            logo_url = upload_result.get('secure_url')
+            company = Company(name=name, email=email, logo_url=logo_url)
             db.session.add(company)
             db.session.commit()
+
             return company.to_dict(), 201
+
         except Exception as e:
             return {'error': str(e)}, 400
+
     @jwt_required()
     def patch(self,id):
         try:
@@ -53,15 +69,16 @@ class CompanySignup(Resource):
     @jwt_required()
     def get(self):
         try:
-            data = get_json_data('name')
-            company = Company.query.filter_by(name=data['name']).first()    
+            name = request.args.get('name')
+            company = Company.query.filter_by(name=name).first()    
             if not company:
                 return {'error': 'Company not found'}, 404
             return company.to_dict(), 200
         except Exception as e:
             return {'error': str(e)}, 400
+class GetAllCompanies(Resource):
     @jwt_required()
-    def get_all(self):
+    def get(self):
         try:
             companies = Company.query.all()
             if not companies:
@@ -119,16 +136,16 @@ class UserSignup(Resource):
     @jwt_required()
     def get(self):
         try:
-            data = get_json_data('username')
-            username = data['username']
+            username = request.args.get('username')
             user = User.query.filter_by(username=username).first()
             if not user:
                 return {'error': 'User not found'}, 404
             return user.to_dict(), 200
         except Exception as e:  
             return {'error': str(e)}, 400
+class GetAllUsers(Resource):
     @jwt_required()
-    def get_all(self):
+    def get(self):
         try:
             users = User.query.all()
             if not users:
@@ -163,15 +180,16 @@ class DepartmentResource(Resource):
     @jwt_required()
     def get(self):
         try:
-            data = get_json_data('name')
-            dept = Department.query.filter_by(name=data['name']).first()
+            name = request.args.get('name')
+            dept = Department.query.filter_by(name=name).first()
             if not dept:
                 return {'error': 'Department not found'}, 404
             return dept.to_dict(), 200
         except Exception as e:  
             return {'error': str(e)}, 400
+class GetAllDepartments(Resource):
     @jwt_required()
-    def get_all(self):
+    def get(self):
         try:
             departments = Department.query.all()
             if not departments:
@@ -185,8 +203,15 @@ class CompanyAssetResource(Resource):
     @jwt_required()
     def post(self):
         try:
-            data = get_json_data('name', 'category', 'company_id')
-            asset = Asset(name=data['name'], category=data['category'], company_id=data['company_id'])
+            name = request.form.get('name')
+            category = request.form.get('category')
+            company_id = request.form.get('company_id')
+            image_file = request.files.get('image')  
+            image_url = None
+            if image_file:
+                upload_result = cloudinary.uploader.upload(image_file)
+                image_url = upload_result.get('secure_url')
+            asset = Asset(name=name, category=category, company_id=company_id, image_url=image_url)
             db.session.add(asset)
             db.session.commit()
             return asset.to_dict(), 201
@@ -220,8 +245,8 @@ class CompanyAssetResource(Resource):
     @jwt_required()
     def get(self):
         try:
-            data = get_json_data('name')
-            company = Company.query.filter_by(name=data['name']).first()
+            name = request.args.get('name')
+            company = Company.query.filter_by(name=name).first()
             if not company:
                 return {'error': 'Company not found'}, 404
             assets = company.assets
@@ -236,10 +261,11 @@ class DepartmentAssetResource(Resource):
     @jwt_required()
     def post(self):
         try:
-            data = get_json_data('name', 'category', 'company_id', 'department_id')
+            data = get_json_data('name', 'category','image_url','company_id', 'department_id')
             d_asset = DepartmentalAsset(
                 name=data['name'],
                 category=data['category'],
+                image_url=data.get('image_url'),
                 company_id=data['company_id'],
                 department_id=data['department_id']
             )
@@ -255,7 +281,7 @@ class DepartmentAssetResource(Resource):
             if not d_asset:
                 return {'error': 'Department asset not found'}, 404
             data = request.get_json()
-            for field in ['name', 'category']:
+            for field in ['name', 'category', 'image_url']:
                 if field in data:
                     setattr(d_asset, field, data[field])
             db.session.commit()
@@ -276,8 +302,8 @@ class DepartmentAssetResource(Resource):
     @jwt_required()
     def get(self):
         try:
-            data = get_json_data('name')
-            department = Department.query.filter_by(name=data['name']).first()
+            name = request.args.get('name')
+            department = Department.query.filter_by(name=name).first()
             if not department:
                 return {'error': 'Department not found'}, 404
             assets = department.assets
@@ -291,10 +317,11 @@ class UserAssetResource(Resource):
     @jwt_required()
     def post(self):
         try:
-            data = get_json_data('name', 'category', 'user_id', 'company_id')
+            data = get_json_data('name', 'category','image_url', 'user_id', 'company_id')
             assigned = AsignedAsset(
                 name=data['name'],
                 category=data['category'],
+                image_url=data.get('image_url'),
                 user_id=data['user_id'],
                 company_id=data['company_id']
             )
@@ -310,7 +337,7 @@ class UserAssetResource(Resource):
             if not asset:
                 return {'error': 'User asset not found'}, 404
             data = request.get_json()
-            for field in ['name', 'category']:
+            for field in ['name', 'category','image_url']:
                 if field in data:
                     setattr(asset, field, data[field])
             db.session.commit()
@@ -331,8 +358,8 @@ class UserAssetResource(Resource):
     @jwt_required()
     def get(self):
         try:
-            data = get_json_data('name')
-            user = User.query.filter_by(username=data['name']).first()
+            username = request.args.get('name')
+            user = User.query.filter_by(username=username).first()
             if not user:
                 return {'error': 'User not found'}, 404
             assets = user.assets
@@ -370,8 +397,8 @@ class RequestAssetResource(Resource):
     @jwt_required()
     def get(self):
         try:
-            data = get_json_data('username')  
-            user = User.query.filter_by(username=data['username']).first()
+            username = request.args.get('username')  
+            user = User.query.filter_by(username=username).first()
             if not user:
                     return {'error': 'User not found'}, 404
             requests = user.requests
