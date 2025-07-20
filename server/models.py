@@ -13,23 +13,23 @@ from sqlalchemy import ForeignKey
 
 
 
-class SuperAdmin(SerializerMixin, db.Model):
-    __tablename__ = "superadmins"
+# class SuperAdmin(SerializerMixin, db.Model):
+#     __tablename__ = "superadmins"
 
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String)
-    _hash_password = db.Column(db.String, nullable=False)
+#     id = db.Column(db.Integer, primary_key=True)
+#     username = db.Column(db.String)
+#     _hash_password = db.Column(db.String, nullable=False)
 
-    @hybrid_property
-    def hash_password(self):
-        raise AttributeError("Cannot access password directly")
+#     @hybrid_property
+#     def hash_password(self):
+#         raise AttributeError("Cannot access password directly")
 
-    @hash_password.setter
-    def hash_password(self, password):
-        self._hash_password = bcrypt.generate_password_hash(password).decode('utf-8')
+#     @hash_password.setter
+#     def hash_password(self, password):
+#         self._hash_password = bcrypt.generate_password_hash(password).decode('utf-8')
 
-    def authenticate(self, password):
-        return bcrypt.check_password_hash(self._hash_password, password)
+#     def authenticate(self, password):
+#         return bcrypt.check_password_hash(self._hash_password, password)
 
 
 class Company(SerializerMixin, db.Model):
