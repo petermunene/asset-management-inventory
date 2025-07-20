@@ -39,9 +39,9 @@ export function userLogin(credentials) {
   return request("/users/login", "POST", credentials);
 }
 
-export function superAdminSignup(adminData) {
-  return request("/superadmin/signup", "POST", adminData);
-}
+// export function superAdminSignup(adminData) {
+//   return request("/superadmin/signup", "POST", adminData);
+// }
 
 export function superAdminApprove(data) {
   return request("/superadmin/approve", "PATCH", data);

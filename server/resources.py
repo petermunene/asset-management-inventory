@@ -427,18 +427,18 @@ class UserLogin(Resource):
         except Exception as e:
             return {'error': str(e)}, 400
 class SuperAdminResource(Resource):
-    def post(self):
-        try:
-            data = get_json_data('username', 'password')
-            superAdmin = SuperAdmin(
-                username=data['username'],   
-            )
-            superAdmin.hash_password = data['password']
-            db.session.add(superAdmin)
-            db.session.commit()
-            return superAdmin.to_dict(), 201
-        except Exception as e:
-            return {'error': str(e)}, 400
+    # def post(self):
+    #     try:
+    #         data = get_json_data('username', 'password')
+    #         superAdmin = SuperAdmin(
+    #             username=data['username'],   
+    #         )
+    #         superAdmin.hash_password = data['password']
+    #         db.session.add(superAdmin)
+    #         db.session.commit()
+    #         return superAdmin.to_dict(), 201
+    #     except Exception as e:
+    #         return {'error': str(e)}, 400
     @jwt_required()
     def patch(self):
         try:

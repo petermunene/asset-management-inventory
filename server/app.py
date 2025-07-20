@@ -105,7 +105,7 @@ api.add_resource(RequestAssetResource,
 
 # SuperAdmin
 api.add_resource(SuperAdminResource,
-    '/superadmin/signup',        # POST
+
     '/superadmin/approve'        # PATCH to toggle approval
 )
 
