@@ -1,12 +1,14 @@
-// App.jsx
-import React from "react";
+
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import EmployeeDashboard from './components/EmployeeDashboard';
+
 
 function App() {
   return (
-    <div>
-      
-    </div>
-  );
-}
-
+    <Router>
+      <Routes>
+        <Route path="/*" element={<EmployeeDashboard />} />
+      </Routes>
+    </Router>
 export default App;
