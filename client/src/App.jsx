@@ -11,4 +11,5 @@ function App() {
         <Route path="/*" element={<EmployeeDashboard />} />
       </Routes>
     </Router>
+  )}
 export default App;
