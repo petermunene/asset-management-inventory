@@ -1,7 +1,7 @@
 
 #app.py
 
-
+import os
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -9,24 +9,25 @@ from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 from flask_restful import Api
 from flask_jwt_extended import JWTManager
+from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-
+load_dotenv()
 cloudinary.config(
   cloud_name="dqdxhajo1",
   api_key="156916228529995",
-  api_secret="Siir6pT6E04Q_T2U_xPxtCuVMfE",
+  api_secret=os.getenv('CLOUDINARY_API_SECRET'),
   secure=True
 )
 
 
-import os
+
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user2:muriukimunene@localhost:5432/assets_management_db'
 api = Api(app)
-app.config['JWT_SECRET_KEY'] = 'stenoh,munene,leon,howard,cynthia'
+app.config['JWT_SECRET_KEY'] = os.getenv('APP_SECRET_KEY')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 900  
 app.config['JWT_REFRESH_TOKEN_EXPIRES'] = 2592000 
 jwt = JWTManager(app)
