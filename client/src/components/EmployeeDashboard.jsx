@@ -18,6 +18,7 @@ const EmployeeDashboard = () => {
   const [assets, setAssets] = useState([]);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [newRequestForm, setNewRequestForm] = useState({
     reason: '',
     urgency: 'medium',
@@ -27,50 +28,62 @@ const EmployeeDashboard = () => {
   useEffect(() => {
     const initializeData = async () => {
       try {
-        const currentUser = await fetchUser(localStorage.getItem('username'));
+        setError(null);
+        const username = localStorage.getItem('username');
+
+        if (!username) {
+          setError('No username found. Please log in again.');
+          setLoading(false);
+          return;
+        }
+
+        const currentUser = await fetchUser(username);
         setUser(currentUser);
 
         if (currentUser && currentUser.username) {
-          // Fetch dashboard stats
-          const userAssets = await fetchAllUserAssets();
-          const userRequests = await fetchAllAssetRequests();
-          
-          const myAssets = userAssets.filter(asset => asset.username === currentUser.username).length;
-          const activeRequests = userRequests.filter(
-            req => req.username === currentUser.username && req.status === 'pending'
-          ).length;
-          const completedRequests = userRequests.filter(
-            req => req.username === currentUser.username && req.status === 'completed'
-          ).length;
-          
+          // Fetch dashboard data in parallel for better performance
+          const [userAssets, userRequests] = await Promise.all([
+            fetchAllUserAssets().catch(err => {
+              console.warn('Failed to fetch user assets:', err);
+              return [];
+            }),
+            fetchAllAssetRequests().catch(err => {
+              console.warn('Failed to fetch asset requests:', err);
+              return [];
+            })
+          ]);
+
+          const userAssetsFiltered = userAssets.filter(asset => asset.username === currentUser.username);
+          const userRequestsFiltered = userRequests.filter(req => req.username === currentUser.username);
+
+          // Calculate stats
+          const myAssets = userAssetsFiltered.length;
+          const activeRequests = userRequestsFiltered.filter(req => req.status === 'pending').length;
+          const completedRequests = userRequestsFiltered.filter(req => req.status === 'completed').length;
+
           setStats({
             myAssets,
             activeRequests,
             completedRequests
           });
 
-          // Fetch user assets
-          const transformedAssets = userAssets
-            .filter(asset => asset.username === currentUser.username)
-            .map((asset, index) => ({
-              id: asset.id || `A${String(index + 1).padStart(3, '0')}`,
-              category: asset.category || 'Unknown',
-              name: asset.name || 'Unknown Asset',
-              assignedDate: new Date().toISOString().split('T')[0],
-              condition: 'Good',
-              status: 'good',
-              image_url: asset.image_url
-            }));
+          // Transform assets data
+          const transformedAssets = userAssetsFiltered.map((asset, index) => ({
+            id: asset.id || `A${String(index + 1).padStart(3, '0')}`,
+            category: asset.category || 'Unknown',
+            name: asset.name || 'Unknown Asset',
+            assignedDate: asset.assigned_date || new Date().toISOString().split('T')[0],
+            condition: asset.condition || 'Good',
+            status: asset.status || 'active',
+            image_url: asset.image_url,
+            serial_number: asset.serial_number
+          }));
           setAssets(transformedAssets);
-
-          // Fetch user requests
-          const userRequestsFiltered = userRequests.filter(
-            req => req.username === currentUser.username
-          );
           setRequests(userRequestsFiltered);
         }
       } catch (error) {
         console.error('Error initializing data:', error);
+        setError('Failed to load dashboard data. Please try refreshing the page.');
       } finally {
         setLoading(false);
       }
@@ -81,17 +94,30 @@ const EmployeeDashboard = () => {
 
   const handleNewRequest = async (e) => {
     e.preventDefault();
+    if (!newRequestForm.reason.trim()) {
+      alert('Please provide a reason for your request.');
+      return;
+    }
+
     try {
       const newRequest = await createAssetRequest({
         ...newRequestForm,
-        username: user.username
+        username: user.username,
+        status: 'pending',
+        created_at: new Date().toISOString()
       });
+
       setRequests(prev => [newRequest, ...prev]);
       setNewRequestForm({ reason: '', urgency: 'medium', request_type: 'equipment' });
+
       // Update stats
       setStats(prev => ({ ...prev, activeRequests: prev.activeRequests + 1 }));
+
+      // Show success message
+      alert('Request submitted successfully!');
     } catch (error) {
       console.error('Error creating request:', error);
+      alert('Failed to submit request. Please try again.');
     }
   };
 
@@ -106,52 +132,80 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#3b82f615', color: '#3b82f6' }}>💼</div>
-          <div className="stat-info">
-            <h3 className="stat-title">My Assets</h3>
-            <div className="stat-value">{loading ? '...' : stats.myAssets}</div>
-            <p className="stat-subtitle">Currently assigned</p>
+      {error ? (
+        <div className="error-message" style={{
+          background: '#fee2e2',
+          color: '#991b1b',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '24px',
+          border: '1px solid #fecaca'
+        }}>
+          <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>⚠️ Error Loading Data</h3>
+          <p style={{ margin: 0, fontSize: '14px' }}>{error}</p>
+        </div>
+      ) : (
+        <div className="stats-grid">
+          <div className="stat-card">
+            <div className="stat-icon" style={{ backgroundColor: '#3b82f615', color: '#3b82f6' }}>💼</div>
+            <div className="stat-info">
+              <h3 className="stat-title">My Assets</h3>
+              <div className="stat-value">{loading ? '...' : stats.myAssets}</div>
+              <p className="stat-subtitle">Currently assigned</p>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon" style={{ backgroundColor: '#f59e0b15', color: '#f59e0b' }}>📝</div>
+            <div className="stat-info">
+              <h3 className="stat-title">Active Requests</h3>
+              <div className="stat-value">{loading ? '...' : stats.activeRequests}</div>
+              <p className="stat-subtitle">Pending approval</p>
+            </div>
+          </div>
+          <div className="stat-card">
+            <div className="stat-icon" style={{ backgroundColor: '#10b98115', color: '#10b981' }}>✅</div>
+            <div className="stat-info">
+              <h3 className="stat-title">Completed Requests</h3>
+              <div className="stat-value">{loading ? '...' : stats.completedRequests}</div>
+              <p className="stat-subtitle">This month</p>
+            </div>
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#f59e0b15', color: '#f59e0b' }}>📝</div>
-          <div className="stat-info">
-            <h3 className="stat-title">Active Requests</h3>
-            <div className="stat-value">{loading ? '...' : stats.activeRequests}</div>
-            <p className="stat-subtitle">Pending approval</p>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-icon" style={{ backgroundColor: '#10b98115', color: '#10b981' }}>✅</div>
-          <div className="stat-info">
-            <h3 className="stat-title">Completed Requests</h3>
-            <div className="stat-value">{loading ? '...' : stats.completedRequests}</div>
-            <p className="stat-subtitle">This month</p>
-          </div>
-        </div>
-      </div>
+      )}
 
-      <div className="recent-activity">
-        <h2>Recent Assets</h2>
-        <div className="assets-preview">
-          {assets.slice(0, 3).map(asset => (
-            <div key={asset.id} className="asset-preview-card">
-              <div className="asset-preview-info">
-                <h4>{asset.name}</h4>
-                <p>{asset.category}</p>
-                <span className="condition-badge good">{asset.condition}</span>
+      {!error && (
+        <div className="recent-activity">
+          <h2>Recent Assets</h2>
+          <div className="assets-preview">
+            {loading ? (
+              <div className="loading-preview">
+                <p>Loading assets...</p>
               </div>
-            </div>
-          ))}
-          {assets.length === 0 && !loading && (
-            <div className="empty-preview">
-              <p>No assets assigned yet</p>
-            </div>
-          )}
+            ) : assets.length > 0 ? (
+              assets.slice(0, 3).map(asset => (
+                <div key={asset.id} className="asset-preview-card">
+                  <div className="asset-preview-info">
+                    <h4>{asset.name}</h4>
+                    <p>{asset.category}</p>
+                    <span className={`condition-badge ${asset.status === 'active' ? 'good' : 'fair'}`}>
+                      {asset.condition}
+                    </span>
+                    {asset.serial_number && (
+                      <small style={{ display: 'block', color: '#64748b', marginTop: '4px' }}>
+                        SN: {asset.serial_number}
+                      </small>
+                    )}
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="empty-preview">
+                <p>No assets assigned yet</p>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -183,12 +237,20 @@ const EmployeeDashboard = () => {
                 </div>
                 <div className="asset-detail">
                   <span className="label">Assigned:</span>
-                  <span>{asset.assignedDate}</span>
+                  <span>{new Date(asset.assignedDate).toLocaleDateString()}</span>
                 </div>
                 <div className="asset-detail">
                   <span className="label">Condition:</span>
-                  <span className="condition-badge good">{asset.condition}</span>
+                  <span className={`condition-badge ${asset.status === 'active' ? 'good' : 'fair'}`}>
+                    {asset.condition}
+                  </span>
                 </div>
+                {asset.serial_number && (
+                  <div className="asset-detail">
+                    <span className="label">Serial:</span>
+                    <span>{asset.serial_number}</span>
+                  </div>
+                )}
               </div>
               <div className="asset-card-footer">
                 <button className="action-btn">Report Issue</button>
@@ -212,12 +274,13 @@ const EmployeeDashboard = () => {
         <form onSubmit={handleNewRequest}>
           <div className="form-grid">
             <div className="form-group">
-              <label>Reason</label>
+              <label>Reason *</label>
               <textarea
                 value={newRequestForm.reason}
                 onChange={(e) => setNewRequestForm(prev => ({ ...prev, reason: e.target.value }))}
                 placeholder="Describe why you need this asset..."
                 required
+                rows="3"
               />
             </div>
             <div className="form-group">
@@ -267,6 +330,11 @@ const EmployeeDashboard = () => {
                   <p>{request.reason}</p>
                   <div className="request-meta">
                     <span>Type: {request.request_type}</span>
+                    {request.created_at && (
+                      <span style={{ marginLeft: '12px' }}>
+                        Created: {new Date(request.created_at).toLocaleDateString()}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
