@@ -160,7 +160,6 @@ export default function SuperAdminDashBoard() {
             marginTop: '20px',
             overflowX: 'auto',
             paddingBottom: '10px',
-            marginLeft: "60px", // <-- this prevents overlap
             transition: 'margin-left 0.3s ease',
           };
           
@@ -195,7 +194,7 @@ export default function SuperAdminDashBoard() {
                 display: 'flex',
                 flexDirection: 'column',
                 minHeight: '100vh',
-                paddingTop: '60px', // To prevent content hiding behind fixed navbar
+                paddingTop: '60px', 
               }}
             >
               {/* Navbar */}
@@ -275,7 +274,10 @@ export default function SuperAdminDashBoard() {
                 </div>
           
                 {/* Main Content */}
-                <div style={mainContentStyle} className="mainContent">
+                <div style={{...mainContentStyle,
+                    marginLeft: '10px', // Add this
+                    transition: 'margin-left 0.3s ease', // Add this
+                    }} className="mainContent">
                   {/* Inject responsive styles */}
                   <style>{responsiveStyle}</style>
           
@@ -311,7 +313,7 @@ export default function SuperAdminDashBoard() {
                       </div>
                     ))}
                   </div>
-                  <div className='filterControls' style={{ marginTop: '20px', marginBottom: '20px', gap: '5px', display: 'flex', flexDirection: 'row', alignItems: 'center',flexWrap: 'wrap',marginLeft: '60px', transition: 'margin-left 0.3s ease' }}>
+                  <div className='filterControls' style={{ marginTop: '20px', marginBottom: '20px', gap: '5px', display: 'flex', flexDirection: 'row', alignItems: 'center',flexWrap: 'wrap',transition: 'margin-left 0.3s ease' }}>
                         <button
                         onClick={() => setStatusFilter('All')}
                         style={{
@@ -437,7 +439,6 @@ export default function SuperAdminDashBoard() {
         }}>
           <table style={{
             width: '100%',
-            marginLeft: '80px', // <-- this prevents overlap
             minWidth: '800px',
             borderCollapse: 'separate',
             borderSpacing: 0
@@ -537,6 +538,7 @@ export default function SuperAdminDashBoard() {
             }
             
             const superAdminNavBar = {
+              left: 0 ,
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -572,14 +574,15 @@ export default function SuperAdminDashBoard() {
                 borderTopRightRadius: '8px',
                 backgroundColor: '#f8f9fa',
                 boxShadow: '2px 0 4px rgba(0,0,0,0.1)',
-                minHeight: '100vh',
+                minHeight: 'calc(100vh - 70px)',
                 paddingTop: '10px',
                 display: 'flex',
                 flexDirection: 'column',
                 position: 'fixed',
                 left: 0,
-                top: 70,
+                top: 50,
                 zIndex: 1000,
+                overflowY: 'auto',
               };
               
               const toggleStyle = {
@@ -648,19 +651,6 @@ export default function SuperAdminDashBoard() {
                 cursor: "pointer",
                 transition: "background-color 0.2s ease",
               };
-              
-              const tableStyle = {
-                overflowX: "auto",
-                // minWidth: "400px",
-                width: "100%",
-                borderCollapse: "separate",
-                borderSpacing: 0,
-                backgroundColor: "#ffffff",
-                borderRadius: "10px",
-                overflow: "hidden",
-                boxShadow: "0 2px 10px rgba(0, 0, 0, 0.05)",
-              };
-              
               const thStyle = {
                 padding: "14px 16px",
                 textAlign: "left",
@@ -678,9 +668,5 @@ export default function SuperAdminDashBoard() {
                 borderBottom: "1px solid #e5e7eb",
                 verticalAlign: "middle",
               };
-              const containerStyle = {
-                overflowX: 'auto',
-                maxWidth: "1200px",
-                width: "100%",
-              };
+
               

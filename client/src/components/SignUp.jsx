@@ -136,7 +136,7 @@ const CompanySignup = () => {
   };
 
   const bgVariants = {
-    company: { background: "linear-gradient(145deg, #43cea2, #185a9d)" },
+    company: { background: "linear-gradient(135deg, #1e3c72, #2a5298)" },
     admin: { background: "linear-gradient(145deg, #ff758c, #ff7eb3)" },
   };
 

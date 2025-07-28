@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   fetchUser,
-  fetchAllUserAssets,
-  fetchAllAssetRequests,
+  fetchUserAssets,
+  fetchAssetRequests,
   createAssetRequest
 } from '../api';
 import './EmployeeDashboard.css';
@@ -24,12 +25,13 @@ const EmployeeDashboard = () => {
     urgency: 'medium',
     request_type: 'equipment'
   });
-
+  const location = useLocation();
+  
   useEffect(() => {
     const initializeData = async () => {
       try {
         setError(null);
-        const username = localStorage.getItem('username');
+        const username = location.state?.username;
 
         if (!username) {
           setError('No username found. Please log in again.');
@@ -43,18 +45,18 @@ const EmployeeDashboard = () => {
         if (currentUser && currentUser.username) {
           // Fetch dashboard data in parallel for better performance
           const [userAssets, userRequests] = await Promise.all([
-            fetchAllUserAssets().catch(err => {
+            fetchUserAssets(username).catch(err => {
               console.warn('Failed to fetch user assets:', err);
               return [];
             }),
-            fetchAllAssetRequests().catch(err => {
+            fetchAssetRequests(username).catch(err => {
               console.warn('Failed to fetch asset requests:', err);
               return [];
             })
           ]);
 
-          const userAssetsFiltered = userAssets.filter(asset => asset.username === currentUser.username);
-          const userRequestsFiltered = userRequests.filter(req => req.username === currentUser.username);
+          const userAssetsFiltered = userAssets
+          const userRequestsFiltered = userRequests
 
           // Calculate stats
           const myAssets = userAssetsFiltered.length;

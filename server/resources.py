@@ -407,6 +407,15 @@ class RequestAssetResource(Resource):
             return [request.to_dict() for request in requests], 200
         except Exception as e:  
             return {'error': str(e)}, 400
+class AllRequests(Resource):
+    def get(self):
+        try:
+            requests = Request.query.all()
+            if not requests:
+                return [], 200
+            return [request.to_dict() for request in requests], 200
+        except Exception as e:
+            return {'error': str(e)}, 400
 
 class UserLogin(Resource):
     def post(self):

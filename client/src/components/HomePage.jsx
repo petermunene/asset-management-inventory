@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
-// import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import './HomePage.css';
 
 const HomePage = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState('home');
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
 
   const handleSignUp = () => {
-    // navigate('/company-signup');
+    navigate('/company-signup');
   };
-
+  const handleLogin = () => {
+    navigate('/login');
+  };
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
@@ -54,6 +56,7 @@ const HomePage = () => {
             >
               About
             </a>
+
             <a 
               href="#contact" 
               className={activeSection === 'contact' ? 'active' : ''}
@@ -65,6 +68,25 @@ const HomePage = () => {
             >
               Contact
             </a>
+            <button
+              style={{
+                backgroundColor: '#4F46E5',
+                color: '#fff',
+                padding: '12px 24px',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '16px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'background-color 0.3s ease',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+              }}
+              onMouseEnter={e => (e.target.style.backgroundColor = '#4338CA')}
+              onMouseLeave={e => (e.target.style.backgroundColor = '#4F46E5')}
+              onClick={handleLogin}
+            >
+              Login
+            </button>
           </div>
           
           <button className="navbar-toggle" onClick={toggleMenu}>

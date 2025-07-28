@@ -161,7 +161,7 @@ export function createUserAsset(asset) {
   return request("/user-assets", "POST", asset);
 }
 
-export function fetchUserAsset(name) {
+export function fetchUserAssets(name) {
   return request(`/user-assets/get?name=${encodeURIComponent(name)}`);
 }
 
@@ -190,6 +190,9 @@ export function deleteAssetRequest(id) {
   return request(`/asset-requests/${id}`, "DELETE");
 }
 
+export function fetchAssetRequests(name) {
+  return request(`/asset-requests/get?name=${encodeURIComponent(name)}`);
+}
 export function fetchAllAssetRequests() {
-  return request("/asset-requests/get");
+  return request("/asset-requests/all");
 }

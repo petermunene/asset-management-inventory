@@ -43,7 +43,7 @@ from server.resources import (
     DepartmentResource, GetAllDepartments,
     CompanyAssetResource, DepartmentAssetResource, UserAssetResource,
     RequestAssetResource, UserLogin,
-    SuperAdminResource, CompaniesGrouped
+    SuperAdminResource, CompaniesGrouped,AllRequests
 )
 
 # Company routes
@@ -102,6 +102,9 @@ api.add_resource(UserAssetResource,
 api.add_resource(RequestAssetResource,
     '/asset-requests',           # POST
     '/asset-requests/get'        # GET requests by username
+)
+api.add_resource(AllRequests,
+    '/asset-requests/all'        # GET all requests
 )
 
 # SuperAdmin

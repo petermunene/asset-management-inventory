@@ -12,7 +12,6 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setCredentials(prev => ({
@@ -29,24 +28,42 @@ const Login = () => {
     try {
       const response = await userLogin(credentials);
       
-      localStorage.setItem('accessToken', response.access_token);
-      localStorage.setItem('refreshToken', response.refresh_token);
-      localStorage.setItem('user', JSON.stringify(response.user));
-
-      switch(response.user.role.toLowerCase()) {
-        case 'manager':
-          navigate('/manager-dashboard');
-          break;
-        case 'employee':
-          navigate('/employee-dashboard');
-          break;
-        case 'director':
-        case 'company_admin':
-          navigate('/admin-dashboard');
-          break;
-        default:
-          setError('Unknown user role');
-          setLoading(false);
+      if (response.status === 200) {      localStorage.setItem('accessToken', response.access_token);
+        localStorage.setItem('refreshToken', response.refresh_token);
+        localStorage.setItem('user', JSON.stringify(response.user));
+  
+        switch(response.user.role.toLowerCase()) {
+          case 'manager':
+            navigate('/manager-dashboard', {
+              state: { userId: response.user.username }
+            });
+            break;
+          case 'employee':
+            navigate('/employee-dashboard', {
+              state: { userId: response.user.id }
+            });;
+            break;
+          case 'director':
+            navigate('/director-dashboard', {
+              state: { userId: response.user.id }
+            });
+            break;
+          case 'super_admin':
+            navigate('/super-admin-dashboard', {
+              state: { userId: response.user.id }
+            });
+            break;
+          case 'company_admin':
+            navigate('/admin-dashboard', {
+              state: { userId: response.user.id }
+            });
+            break;
+          default:
+            setError('Unknown user role');
+            setLoading(false);
+        }} else { 
+        setError('Invalid username or password');
+        setLoading(false);
       }
     } catch (err) {
       setError(err.message || 'Login failed. Please check your credentials.');
