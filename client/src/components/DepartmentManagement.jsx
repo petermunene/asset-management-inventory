@@ -1,36 +1,66 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  fetchAllDepartments, 
-  createDepartment, 
-  updateDepartment, 
-  deleteDepartment 
+  fetchAllDepartments,
+  fetchAllDepartmentAssets,
+  createDepartmentAsset,
+  updateDepartmentAsset,
+  deleteDepartmentAsset,
+  fetchAllCompanyAssets
 } from '../api.js';
 import './DepartmentManagement.css';
 
-const DepartmentManagement = ({ onClose }) => {
+const DepartmentManagement = ({ companyId }) => {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingDepartment, setEditingDepartment] = useState(null);
+  const [selectedDepartment, setSelectedDepartment] = useState(null);
+  const [departmentAssets, setDepartmentAssets] = useState([]);
+  const [companyAssets, setCompanyAssets] = useState([]);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editingAsset, setEditingAsset] = useState(null);
+  const [showAssignmentView, setShowAssignmentView] = useState(false);
+  const [isOpen, setIsOpen] = useState(true);
   
-  const [formData, setFormData] = useState({
+  const [assetFormData, setAssetFormData] = useState({
     name: '',
-    description: '',
-    manager_name: '',
-    budget: ''
+    category: '',
+    image_url: ''
   });
 
   useEffect(() => {
-    loadDepartments();
-  }, []);
+    if (isOpen) {
+      loadDepartments();
+      loadCompanyAssets();
+    }
+  }, [isOpen, companyId]);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    resetState();
+  };
+
+  const resetState = () => {
+    setSelectedDepartment(null);
+    setDepartmentAssets([]);
+    setShowEditForm(false);
+    setEditingAsset(null);
+    setShowAssignmentView(false);
+    setAssetFormData({
+      name: '',
+      category: '',
+      image_url: ''
+    });
+  };
 
   const loadDepartments = async () => {
     try {
       setLoading(true);
       setError(null);
       const departmentData = await fetchAllDepartments();
-      setDepartments(departmentData || []);
+      const filteredDepartments = departmentData.filter(
+        dept => dept.company_id === companyId
+      );
+      setDepartments(filteredDepartments || []);
     } catch (err) {
       console.error('Error loading departments:', err);
       setError('Failed to load departments');
@@ -39,96 +69,341 @@ const DepartmentManagement = ({ onClose }) => {
     }
   };
 
-  const handleInputChange = (e) => {
+  const loadCompanyAssets = async () => {
+    try {
+      setLoading(true);
+      const assetData = await fetchAllCompanyAssets();
+      const filteredAssets = assetData.filter(
+        asset => asset.company_id === companyId
+      );
+      setCompanyAssets(filteredAssets || []);
+    } catch (err) {
+      console.error('Error loading company assets:', err);
+      setError('Failed to load company assets');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDepartmentAssets = async (departmentId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const assetData = await fetchAllDepartmentAssets();
+      const filteredAssets = assetData.filter(
+        asset => asset.department_id === departmentId && asset.company_id === companyId
+      );
+      setDepartmentAssets(filteredAssets || []);
+    } catch (err) {
+      console.error('Error loading department assets:', err);
+      setError('Failed to load department assets');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAssetInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setAssetFormData(prev => ({
       ...prev,
       [name]: value
     }));
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      description: '',
-      manager_name: '',
-      budget: ''
-    });
-    setShowCreateForm(false);
-    setEditingDepartment(null);
-  };
-
-  const handleSubmit = async (e) => {
+  const handleAssetSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const departmentData = {
-        name: formData.name,
-        description: formData.description,
-        manager_name: formData.manager_name || null,
-        budget: formData.budget ? parseFloat(formData.budget) : null
-      };
-
-      if (editingDepartment) {
-        await updateDepartment(editingDepartment.id, departmentData);
-      } else {
-        await createDepartment(departmentData);
-      }
-
-      resetForm();
-      await loadDepartments();
+      await updateDepartmentAsset(editingAsset.id, assetFormData);
+      setShowEditForm(false);
+      await loadDepartmentAssets(selectedDepartment.id);
     } catch (err) {
-      console.error('Error saving department:', err);
-      setError(`Failed to ${editingDepartment ? 'update' : 'create'} department: ${err.message}`);
+      console.error('Error updating asset:', err);
+      setError(`Failed to update asset: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEdit = (department) => {
-    setEditingDepartment(department);
-    setFormData({
-      name: department.name || '',
-      description: department.description || '',
-      manager_name: department.manager_name || '',
-      budget: department.budget || ''
+  const handleEditAsset = (asset) => {
+    setEditingAsset(asset);
+    setAssetFormData({
+      name: asset.name || '',
+      category: asset.category || '',
+      image_url: asset.image_url || ''
     });
-    setShowCreateForm(true);
+    setShowEditForm(true);
   };
 
-  const handleDelete = async (department) => {
-    if (!window.confirm(`Are you sure you want to delete the "${department.name}" department? This action cannot be undone.`)) {
+  const handleDeleteAsset = async (asset) => {
+    if (!window.confirm(`Delete "${asset.name}" asset? This action cannot be undone.`)) {
       return;
     }
 
     try {
       setLoading(true);
-      await deleteDepartment(department.id);
-      await loadDepartments();
+      await deleteDepartmentAsset(asset.id);
+      await loadDepartmentAssets(selectedDepartment.id);
     } catch (err) {
-      console.error('Error deleting department:', err);
-      setError(`Failed to delete department: ${err.message}`);
+      console.error('Error deleting asset:', err);
+      setError(`Failed to delete asset: ${err.message}`);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (amount) => {
-    if (!amount) return 'N/A';
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+  const handleViewAssets = async (department) => {
+    setSelectedDepartment(department);
+    await loadDepartmentAssets(department.id);
   };
 
+  const handleBackToDepartments = () => {
+    resetState();
+    loadDepartments();
+  };
+
+  const handleAssignAsset = () => {
+    setShowAssignmentView(true);
+  };
+
+  const handleAssignCompanyAsset = async (companyAsset) => {
+    if (!window.confirm(`Assign "${companyAsset.name}" to ${selectedDepartment.name}?`)) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      await createDepartmentAsset({
+        name: companyAsset.name,
+        category: companyAsset.category,
+        image_url: companyAsset.image_url,
+        company_id: companyId,
+        department_id: selectedDepartment.id
+      });
+      
+      await loadDepartmentAssets(selectedDepartment.id);
+      setShowAssignmentView(false);
+    } catch (err) {
+      console.error('Error assigning asset:', err);
+      setError(`Failed to assign asset: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen) return null;
+
+  // Render asset management view
+  if (selectedDepartment) {
+    return (
+      <div className="department-management-overlay">
+        <div className="department-management-container compact-view">
+          <div className="department-management-header">
+            <button 
+              className="back-button"
+              onClick={handleBackToDepartments}
+            >
+              &larr; Departments
+            </button>
+            <h2 className="department-management-title">
+              {selectedDepartment.name} Assets
+            </h2>
+            <button className="department-management-close" onClick={handleClose}>×</button>
+          </div>
+
+          {error && (
+            <div className="department-management-error">
+              ⚠️ {error}
+            </div>
+          )}
+
+          {!showAssignmentView && (
+            <div className="asset-actions">
+              <button 
+                className="assign-asset-btn"
+                onClick={handleAssignAsset}
+                disabled={loading}
+              >
+                + Assign Asset
+              </button>
+            </div>
+          )}
+
+          {showAssignmentView ? (
+            <div className="assignment-view">
+              <div className="assignment-header">
+                <button 
+                  className="back-button"
+                  onClick={() => setShowAssignmentView(false)}
+                >
+                  &larr; Back
+                </button>
+                <h3>Assign to {selectedDepartment.name}</h3>
+              </div>
+              
+              <div className="company-assets-grid compact-grid">
+                {companyAssets.map(asset => (
+                  <div 
+                    key={asset.id} 
+                    className="company-asset-card compact-card"
+                    onClick={() => handleAssignCompanyAsset(asset)}
+                  >
+                    {asset.image_url && (
+                      <img 
+                        src={asset.image_url} 
+                        alt={asset.name} 
+                        className="company-asset-image compact-image"
+                      />
+                    )}
+                    <div className="company-asset-name">{asset.name}</div>
+                    <div className="company-asset-category">{asset.category}</div>
+                    <button
+                      className="assign-button compact-button"
+                      onClick={() => handleAssignCompanyAsset(asset)}
+                      disabled={loading}
+                    >
+                      Assign
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : showEditForm ? (
+            <div className="asset-edit-form compact-form">
+              <div className="asset-form-header">
+                <h3 className="asset-form-title">Edit Asset</h3>
+                <button 
+                  className="asset-form-close" 
+                  onClick={() => setShowEditForm(false)}
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={handleAssetSubmit} className="asset-form">
+                <div className="form-group">
+                  <label htmlFor="asset-name" className="form-label">Name</label>
+                  <input
+                    type="text"
+                    id="asset-name"
+                    name="name"
+                    value={assetFormData.name}
+                    onChange={handleAssetInputChange}
+                    className="form-input compact-input"
+                    required
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="asset-category" className="form-label">Category</label>
+                  <input
+                    type="text"
+                    id="asset-category"
+                    name="category"
+                    value={assetFormData.category}
+                    onChange={handleAssetInputChange}
+                    className="form-input compact-input"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="asset-image-url" className="form-label">Image URL</label>
+                  <input
+                    type="text"
+                    id="asset-image-url"
+                    name="image_url"
+                    value={assetFormData.image_url}
+                    onChange={handleAssetInputChange}
+                    className="form-input compact-input"
+                  />
+                </div>
+
+                <div className="form-actions compact-actions">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditForm(false)}
+                    className="form-button-cancel"
+                    disabled={loading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="form-button-submit"
+                    disabled={loading}
+                  >
+                    {loading ? 'Saving...' : 'Update'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="assets-list">
+              {loading ? (
+                <div className="loading-state">Loading assets...</div>
+              ) : departmentAssets.length === 0 ? (
+                <div className="no-assets">
+                  No assets assigned to this department.
+                </div>
+              ) : (
+                <div className="assets-grid compact-grid">
+                  {departmentAssets.map(asset => (
+                    <div key={asset.id} className="asset-card compact-card">
+                      <div className="asset-header">
+                        <h3 className="asset-name compact-name">{asset.name}</h3>
+                        <div className="asset-actions-menu">
+                          <button 
+                            className="asset-edit-btn"
+                            onClick={() => handleEditAsset(asset)}
+                            title="Edit"
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            className="asset-delete-btn"
+                            onClick={() => handleDeleteAsset(asset)}
+                            title="Delete"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                      
+                      {asset.image_url && (
+                        <img 
+                          src={asset.image_url} 
+                          alt={asset.name} 
+                          className="asset-image compact-image"
+                        />
+                      )}
+                      
+                      <div className="asset-info compact-info">
+                        <div className="info-item">
+                          <span className="info-value">{asset.category || 'No category'}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Render department management view
   return (
     <div className="department-management-overlay">
-      <div className="department-management-container">
+      <div className="department-management-container compact-view">
         <div className="department-management-header">
-          <h2 className="department-management-title">Department Management</h2>
-          <button className="department-management-close" onClick={onClose}>×</button>
+          <h2 className="department-management-title">Departments</h2>
+          <button className="department-management-close" onClick={handleClose}>×</button>
         </div>
 
         {error && (
@@ -137,166 +412,29 @@ const DepartmentManagement = ({ onClose }) => {
           </div>
         )}
 
-        <div className="department-actions">
-          <button 
-            className="create-department-btn"
-            onClick={() => setShowCreateForm(true)}
-            disabled={loading}
-          >
-            + Create New Department
-          </button>
-        </div>
-
-        {showCreateForm && (
-          <div className="department-form-container">
-            <div className="department-form-header">
-              <h3 className="department-form-title">
-                {editingDepartment ? 'Edit Department' : 'Create New Department'}
-              </h3>
-              <button className="department-form-close" onClick={resetForm}>×</button>
-            </div>
-
-            <form onSubmit={handleSubmit} className="department-form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label htmlFor="name" className="form-label">Department Name *</label>
-                  <input
-                    type="text"
-                    id="name"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="form-input"
-                    required
-                    placeholder="Enter department name"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="manager_name" className="form-label">Manager Name</label>
-                  <input
-                    type="text"
-                    id="manager_name"
-                    name="manager_name"
-                    value={formData.manager_name}
-                    onChange={handleInputChange}
-                    className="form-input"
-                    placeholder="Enter manager name"
-                  />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="description" className="form-label">Description</label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  className="form-textarea"
-                  rows="3"
-                  placeholder="Enter department description"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="budget" className="form-label">Budget ($)</label>
-                <input
-                  type="number"
-                  id="budget"
-                  name="budget"
-                  value={formData.budget}
-                  onChange={handleInputChange}
-                  className="form-input"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                />
-              </div>
-
-              <div className="form-actions">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="form-button-cancel"
-                  disabled={loading}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="form-button-submit"
-                  disabled={loading}
-                >
-                  {loading ? 'Saving...' : (editingDepartment ? 'Update Department' : 'Create Department')}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
         <div className="departments-list">
-          {loading && !showCreateForm ? (
-            <div className="loading-state">Loading departments...</div>
+          {loading ? (
+            <div className="loading-state">Loading...</div>
           ) : departments.length === 0 ? (
             <div className="no-departments">
-              No departments found. Create your first department to get started.
+              No departments found.
             </div>
           ) : (
-            <div className="departments-grid">
+            <div className="departments-grid compact-grid">
               {departments.map(department => (
-                <div key={department.id} className="department-card">
+                <div 
+                  key={department.id} 
+                  className="department-card compact-card"
+                  onClick={() => handleViewAssets(department)}
+                >
                   <div className="department-header">
-                    <h3 className="department-name">{department.name}</h3>
-                    <div className="department-actions-menu">
-                      <button 
-                        className="department-edit-btn"
-                        onClick={() => handleEdit(department)}
-                        title="Edit Department"
-                      >
-                        ✏️
-                      </button>
-                      <button 
-                        className="department-delete-btn"
-                        onClick={() => handleDelete(department)}
-                        title="Delete Department"
-                      >
-                        🗑️
-                      </button>
-                    </div>
+                    <h3 className="department-name compact-name">{department.name}</h3>
                   </div>
                   
-                  <div className="department-details">
-                    {department.description && (
-                      <p className="department-description">{department.description}</p>
-                    )}
-                    
-                    <div className="department-info">
-                      <div className="info-item">
-                        <span className="info-label">ID:</span>
-                        <span className="info-value">#{department.id}</span>
-                      </div>
-                      
-                      {department.manager_name && (
-                        <div className="info-item">
-                          <span className="info-label">Manager:</span>
-                          <span className="info-value">{department.manager_name}</span>
-                        </div>
-                      )}
-                      
-                      <div className="info-item">
-                        <span className="info-label">Budget:</span>
-                        <span className="info-value">{formatCurrency(department.budget)}</span>
-                      </div>
-                      
-                      {department.created_at && (
-                        <div className="info-item">
-                          <span className="info-label">Created:</span>
-                          <span className="info-value">
-                            {new Date(department.created_at).toLocaleDateString()}
-                          </span>
-                        </div>
-                      )}
+                  <div className="department-info compact-info">
+                    <div className="info-item">
+                      <span className="info-label">Manager:</span>
+                      <span className="info-value">{department.manager_name || 'N/A'}</span>
                     </div>
                   </div>
                 </div>

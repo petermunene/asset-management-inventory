@@ -1,45 +1,42 @@
 //api.js
 
 const API_BASE = "http://localhost:5000";
-
+const token = localStorage.getItem('accessToken');
 async function request(endpoint, method = "GET", body = null) {
-    const headers = {
-      "Content-Type": "application/json",
-    };
-  
-    const res = await fetch(`${API_BASE}${endpoint}`, {
+
+  const headers = {
+    'Authorization': `Bearer ${token}`,
+  };
+  let payload = body;
+  if (body && !(body instanceof FormData)) {
+    headers["Content-Type"] = "application/json";
+    payload = JSON.stringify(body);
+  }
+
+  const res = await fetch(`${API_BASE}${endpoint}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : null,
+    body: payload,
     credentials: "include",
   });
 
+  const contentType = res.headers.get("Content-Type");
   let data;
 
-  try {
-    const contentType = res.headers.get("Content-Type");
-
-    if (contentType && contentType.includes("application/json")) {
-      data = await res.json();
-    } else {
-      const text = await res.text();
-      data = { message: text };
-    }
-  } catch (parseError) {
-    console.error("Error parsing response:", parseError);
-    // If we can't parse the response, create a generic error
-    data = { error: `HTTP ${res.status}: ${res.statusText}` };
+  if (contentType && contentType.includes("application/json")) {
+    data = await res.json();
+  } else {
+    const text = await res.text();
+    data = { error: text };
   }
 
   if (!res.ok) {
     console.error(`Error ${res.status}: ${res.statusText}`, data);
-    const errorMessage = data.error || data.message || `HTTP ${res.status}: ${res.statusText}`;
-    throw new Error(errorMessage);
+    throw new Error(data.error || "Fetch request failed");
   }
 
   return data;
-  }
-
+}
 // ──────── AUTH ────────
 export function userLogin(credentials) {
   return request("/users/login", "POST", credentials);
@@ -84,7 +81,7 @@ export function userSignup(userData) {
 }
 
 export function fetchUser(name) {
-  return request(`/users/get?name=${encodeURIComponent(name)}`);
+  return request(`/users/get?username=${encodeURIComponent(name)}`);
 }
 
 export function updateUser(id, updates) {
@@ -168,7 +165,7 @@ export function createUserAsset(asset) {
 }
 
 export function fetchUserAssets(name) {
-  return request(`/user-assets/get?name=${encodeURIComponent(name)}`);
+  return request(`/user-assets/get?username=${encodeURIComponent(name)}`);
 }
 
 export function updateUserAsset(id, updates) {
@@ -197,7 +194,7 @@ export function deleteAssetRequest(id) {
 }
 
 export function fetchAssetRequests(name) {
-  return request(`/asset-requests/get?name=${encodeURIComponent(name)}`);
+  return request(`/asset-requests/get?username=${encodeURIComponent(name)}`);
 }
 export function fetchAllAssetRequests() {
   return request("/asset-requests/all");

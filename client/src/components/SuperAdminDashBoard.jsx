@@ -29,6 +29,7 @@ export default function SuperAdminDashBoard() {
             const all = await fetchAllCompanies();
             setCompanies(all);
             setAllCompanies(all);
+            
     
             const allUsers = await fetchAllUsers();
             setUsers(allUsers);
@@ -36,7 +37,7 @@ export default function SuperAdminDashBoard() {
             const grouped = await fetchGroupedCompanies();
             setGroupedCompanies(grouped);
     
-            const super_admin = allUsers.find(user => user.role === 'superadmin');
+            const super_admin = allUsers.find(user => user.role === 'super_admin');
             if (!super_admin) {
               alert("No superadmin found. Please create one first.");
               return;
@@ -74,7 +75,7 @@ export default function SuperAdminDashBoard() {
             setCompanies((prev) =>
               prev.map((company) => {
                 if (company.id === id) {
-                  updatedCompany = { ...company, isApproved: !company.isApproved };
+                  updatedCompany = { ...company, is_approved: !company.is_approved };
                   return updatedCompany;
                 }
                 return company;
@@ -83,16 +84,16 @@ export default function SuperAdminDashBoard() {
 
             if (updatedCompany) {
               try {
-                await updateCompany(id, { isApproved: updatedCompany.isApproved });
+                await updateCompany(id, { is_approved: updatedCompany.is_approved });
               } catch (error) {
                 alert("Failed to update approval status: " + error.message);
               }
             }
           };
         const filteredCompanies = companies.filter(company => 
-            company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            company.adminEmail.toLowerCase().includes(searchTerm.toLowerCase())
+            company?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            company?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            company?.adminEmail?.toLowerCase().includes(searchTerm.toLowerCase())
         );
         const iconMap = {
             approved: <FaCheckCircle color="#28a745" size={24} />,
@@ -397,10 +398,10 @@ export default function SuperAdminDashBoard() {
                 <div>
                   <strong>Status:</strong>{" "}
                   <span style={{
-                    color: company.isApproved ? '#28a745' : '#ffc107',
+                    color: company.is_approved ? '#28a745' : '#ffc107',
                     fontWeight: '500'
                   }}>
-                    {company.isApproved ? "Approved" : "Pending"}
+                    {company.is_approved ? "Approved" : "Pending"}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -408,10 +409,10 @@ export default function SuperAdminDashBoard() {
                     onClick={() => toggleApproval(company.id)}
                     style={{
                       ...buttonStyle,
-                      background: company.isApproved ? "#f59e0b" : "#10b981"
+                      background: company.is_approved ? "#f59e0b" : "#10b981"
                     }}
                   >
-                    {company.isApproved ? "Withhold" : "Approve"}
+                    {company.is_approved ? "Withhold" : "Approve"}
                   </button>
                   <button
                     onClick={() => handleDeleteCompany(company.id)}
@@ -489,10 +490,10 @@ export default function SuperAdminDashBoard() {
                     <td style={tdStyle}>{company.adminEmail}</td>
                     <td style={tdStyle}>
                       <span style={{
-                        color: company.isApproved ? '#28a745' : '#ffc107',
+                        color: company.is_approved ? '#28a745' : '#ffc107',
                         fontWeight: '500'
                       }}>
-                        {company.isApproved ? "Approved" : "Pending"}
+                        {company.is_approved ? "Approved" : "Pending"}
                       </span>
                     </td>
                     <td style={tdStyle}>
@@ -501,10 +502,10 @@ export default function SuperAdminDashBoard() {
                           onClick={() => toggleApproval(company.id)}
                           style={{
                             ...buttonStyle,
-                            background: company.isApproved ? "#f59e0b" : "#10b981"
+                            background: company.is_approved ? "#f59e0b" : "#10b981"
                           }}
                         >
-                          {company.isApproved ? "Withhold" : "Approve"}
+                          {company.is_approved ? "Withhold" : "Approve"}
                         </button>
                         <button
                           onClick={() => handleDeleteCompany(company.id)}

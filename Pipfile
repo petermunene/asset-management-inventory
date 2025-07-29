@@ -7,7 +7,6 @@ name = "pypi"
 flask-sqlalchemy = "*"
 flask-bcrypt = "*"
 sqlalchemy = "*"
-sqlalchemy-serializer = "*"
 flask-restful = "*"
 flask = "*"
 flask-jwt-extended = "*"
@@ -16,6 +15,7 @@ flask-migrate = "*"
 cloudinary = "*"
 psycopg2-binary = "*"
 python-dotenv = "*"
+sqlalchemy-serializer = "*"
 
 [dev-packages]
 

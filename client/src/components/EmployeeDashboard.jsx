@@ -32,7 +32,7 @@ const EmployeeDashboard = () => {
       try {
         setError(null);
         const username = location.state?.username;
-
+        
         if (!username) {
           setError('No username found. Please log in again.');
           setLoading(false);
@@ -40,6 +40,7 @@ const EmployeeDashboard = () => {
         }
 
         const currentUser = await fetchUser(username);
+        console.log (currentUser)
         setUser(currentUser);
 
         if (currentUser && currentUser.username) {

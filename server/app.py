@@ -2,6 +2,7 @@
 
 import os
 from flask import Flask
+from server.extensions import migrate, bcrypt , db
 from flask_cors import CORS
 from flask_restful import Api
 from flask_jwt_extended import JWTManager
@@ -13,7 +14,7 @@ load_dotenv()
 cloudinary.config(
   cloud_name="dqdxhajo1",
   api_key="156916228529995",
-  api_secret=os.getenv('CLOUDINARY_API_SECRET'),
+  api_secret=os.getenv('CLOUDINARY_SECRET_KEY'),
   secure=True
 )
 app = Flask(__name__)
@@ -24,11 +25,14 @@ app.config['JWT_SECRET_KEY'] = os.getenv('APP_SECRET_KEY')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 900  
 app.config['JWT_REFRESH_TOKEN_EXPIRES'] = 2592000 
 jwt = JWTManager(app)
-api = Api(app)
-CORS(app, supports_credentials=True)
+db.init_app(app)
+migrate.init_app(app, db)
+bcrypt.init_app(app)
+CORS (app , supports_credentials=True)
 
 
-from resources import (
+
+from server.resources import (
     CompanyResource, GetAllCompanies,
     UserSignup, GetAllUsers,
     DepartmentResource, GetAllDepartments,

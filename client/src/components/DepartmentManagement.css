@@ -366,3 +366,70 @@
     width: 100%;
   }
 }
+/* Compact layout */
+.compact-view {
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.compact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.compact-card {
+  width: 250px;
+  padding: 15px;
+  margin: 0;
+}
+
+.compact-name {
+  font-size: 1rem;
+  margin-bottom: 8px;
+}
+
+.compact-info {
+  font-size: 0.85rem;
+}
+
+.compact-image {
+  max-width: 100%;
+  height: 120px;
+  object-fit: contain;
+  margin: 8px 0;
+}
+
+.compact-button {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.compact-form {
+  padding: 15px;
+}
+
+.compact-input {
+  padding: 8px;
+  font-size: 0.9rem;
+}
+
+.compact-actions {
+  margin-top: 15px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .compact-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  
+  .compact-card {
+    width: 200px;
+  }
+  
+  .compact-image {
+    height: 100px;
+  }
+}

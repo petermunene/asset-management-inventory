@@ -6,6 +6,7 @@ import EmployeeDashboard from './components/EmployeeDashboard';
 import CompanySignup from './components/SignUp';
 import HomePage from './components/HomePage'  ;
 import Login from './components/Login';
+
 function App() {
   return (
     <Router>

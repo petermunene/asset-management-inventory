@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createCompanyAsset, createDepartmentAsset, fetchAllDepartments } from '../api.js';
 import './AssetCreationForm.css';
-
+import { useLocation } from 'react-router-dom';
 const AssetCreationForm = ({ onClose, onAssetCreated }) => {
   const [formData, setFormData] = useState({
     name: '',
@@ -16,7 +16,7 @@ const AssetCreationForm = ({ onClose, onAssetCreated }) => {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-
+  const location = useLocation();
   useEffect(() => {
     loadDepartments();
   }, []);
@@ -72,32 +72,25 @@ const AssetCreationForm = ({ onClose, onAssetCreated }) => {
   };
 
   const handleSubmit = async (e) => {
+
     e.preventDefault();
     setLoading(true);
     setError(null);
 
     try {
-      const assetData = {
-        name: formData.name,
-        description: formData.description,
-        category: formData.category,
-        value: parseFloat(formData.value) || 0,
-        photo: selectedFile ? selectedFile.name : null
-      };
-
-      // In a real application, you would upload the file to a server here
-      // For now, we'll just include the filename
+      const companyId = location.state?.company_id 
+      const formPayload = new FormData();
+      formPayload.append("name", formData.name);
+      formPayload.append("description", formData.description);
+      formPayload.append("category", formData.category);
+      formPayload.append("company_id", companyId);
+      
       if (selectedFile) {
-        console.log('Asset photo selected:', selectedFile.name, selectedFile.size);
+        formPayload.append("image_url", selectedFile);
       }
-
-      let result;
-      if (formData.asset_type === 'department' && formData.department_id) {
-        assetData.department_id = parseInt(formData.department_id);
-        result = await createDepartmentAsset(assetData);
-      } else {
-        result = await createCompanyAsset(assetData);
-      }
+      
+      let result = await createCompanyAsset(formPayload);
+      
 
       console.log('Asset created successfully:', result);
       onAssetCreated && onAssetCreated(result);
@@ -114,7 +107,7 @@ const AssetCreationForm = ({ onClose, onAssetCreated }) => {
     <div className="asset-form-overlay">
       <div className="asset-form-container">
         <div className="asset-form-header">
-          <h2 className="asset-form-title">Create New Asset</h2>
+          <h2 className="asset-form-title">Create New Company Asset</h2>
           <button className="asset-form-close" onClick={onClose}>×</button>
         </div>
 
@@ -126,21 +119,6 @@ const AssetCreationForm = ({ onClose, onAssetCreated }) => {
 
         <form onSubmit={handleSubmit} className="asset-form">
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="asset_type" className="form-label">Asset Type</label>
-              <select
-                id="asset_type"
-                name="asset_type"
-                value={formData.asset_type}
-                onChange={handleInputChange}
-                className="form-input"
-                required
-              >
-                <option value="company">Company Asset</option>
-                <option value="department">Department Asset</option>
-              </select>
-            </div>
-
             {formData.asset_type === 'department' && (
               <div className="form-group">
                 <label htmlFor="department_id" className="form-label">Department</label>
@@ -214,21 +192,6 @@ const AssetCreationForm = ({ onClose, onAssetCreated }) => {
           </div>
 
           <div className="form-row">
-            <div className="form-group">
-              <label htmlFor="value" className="form-label">Value ($)</label>
-              <input
-                type="number"
-                id="value"
-                name="value"
-                value={formData.value}
-                onChange={handleInputChange}
-                className="form-input"
-                min="0"
-                step="0.01"
-                placeholder="0.00"
-              />
-            </div>
-
             <div className="form-group">
               <label htmlFor="asset_photo" className="form-label">Asset Photo</label>
               <div className="photo-upload-container">

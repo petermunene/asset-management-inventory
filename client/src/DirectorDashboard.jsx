@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import './DirectorDashboard.css';
 import {
+  fetchAllCompanies,
   fetchAllCompanyAssets,
   fetchAllDepartmentAssets,
   fetchAllUserAssets,
@@ -30,16 +32,17 @@ const DirectorDashboard = () => {
   const [showAssetManagement, setShowAssetManagement] = useState(false);
   const [showDepartmentManagement, setShowDepartmentManagement] = useState(false);
   const [showUserRequests, setShowUserRequests] = useState(false);
-
+  const location = useLocation();
+  const companyId = location.state?.company_id 
   useEffect(() => {
     loadDashboardData();
   }, []);
-
+  
   const loadDashboardData = async () => {
     try {
       setLoading(true);
       setError(null);
-
+      
       // Fetch all data needed for the dashboard
       const [
         companyAssets,
@@ -48,11 +51,25 @@ const DirectorDashboard = () => {
         users,
         assetRequests
       ] = await Promise.all([
-        fetchAllCompanyAssets().catch(() => []),
-        fetchAllDepartmentAssets().catch(() => []),
-        fetchAllUserAssets().catch(() => []),
-        fetchAllUsers().catch(() => []),
-        fetchAllAssetRequests().catch(() => [])
+        fetchAllCompanyAssets()
+          .then(data => data.filter(asset => asset.company_id === companyId))
+          .catch(() => []),
+      
+        fetchAllDepartmentAssets()
+          .then(data => data.filter(asset => asset.company_id === companyId))
+          .catch(() => []),
+      
+        fetchAllUserAssets()
+          .then(data => data.filter(asset => asset.company_id === companyId))
+          .catch(() => []),
+      
+        fetchAllUsers()
+          .then(data => data.filter(user => user.company_id === companyId))
+          .catch(() => []),
+      
+        fetchAllAssetRequests()
+          .then(data => data.filter(request => request.company_id === companyId))
+          .catch(() => [])
       ]);
 
       // Calculate statistics
@@ -169,7 +186,7 @@ const DirectorDashboard = () => {
       setLoading(true);
       console.log('Testing connection to backend...');
 
-      const response = await fetch('http://localhost:5000/companies/all');
+      const response = await fetchAllCompanies();
       console.log('Response status:', response.status);
       console.log('Response headers:', [...response.headers.entries()]);
 
@@ -376,6 +393,7 @@ const DirectorDashboard = () => {
 
       {showDepartmentManagement && (
         <DepartmentManagement
+          companyId={companyId}
           onClose={() => setShowDepartmentManagement(false)}
         />
       )}

@@ -27,25 +27,25 @@ const Login = () => {
 
     try {
       const response = await userLogin(credentials);
-      
-      if (response.status === 200) {      localStorage.setItem('accessToken', response.access_token);
+      console.log(response)
+      if (response) {      localStorage.setItem('accessToken', response.access_token);
         localStorage.setItem('refreshToken', response.refresh_token);
         localStorage.setItem('user', JSON.stringify(response.user));
-  
+        console.log('Login response:', response);
         switch(response.user.role.toLowerCase()) {
           case 'manager':
             navigate('/manager-dashboard', {
-              state: { userId: response.user.username }
+              state: { userId: response.user.id }
             });
             break;
           case 'employee':
             navigate('/employee-dashboard', {
-              state: { userId: response.user.id }
-            });;
+              state: { username: response.user.username }
+            });
             break;
           case 'director':
             navigate('/director-dashboard', {
-              state: { userId: response.user.id }
+              state: { company_id: response.user.company_id}
             });
             break;
           case 'super_admin':

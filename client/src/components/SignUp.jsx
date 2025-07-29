@@ -185,7 +185,7 @@ const CompanySignup = () => {
     const CompanyData = new FormData();
     CompanyData.append("name", companyData.name);
     CompanyData.append("email", companyData.email);
-    CompanyData.append("logo", companyData.logo);
+    CompanyData.append("logo_url", companyData.logo);
     const AdminData = {
       fullName: adminData.fullName,
       email: adminData.email,
@@ -335,7 +335,7 @@ const CompanySignup = () => {
                   type="file"
                   accept="image/*"
                   capture="environment"
-                  style={{ display: "none" }} // hide default button
+                   // hide default button
                   id="logoUpload"
                   custom={2}
                   variants={inputVariants}
