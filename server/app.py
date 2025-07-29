@@ -1,14 +1,11 @@
-
 #app.py
 
 
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
-from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 from flask_restful import Api
 from flask_jwt_extended import JWTManager
+from database import db, migrate, bcrypt
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
@@ -20,23 +17,24 @@ cloudinary.config(
   secure=True
 )
 
-
 import os
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user2:muriukimunene@localhost:5432/assets_management_db'
-api = Api(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///assets_management.db'  # Use SQLite for simplicity
 app.config['JWT_SECRET_KEY'] = 'stenoh,munene,leon,howard,cynthia'
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 900  
-app.config['JWT_REFRESH_TOKEN_EXPIRES'] = 2592000 
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 900
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = 2592000
+
+# Initialize extensions
+db.init_app(app)
+migrate.init_app(app, db)
+bcrypt.init_app(app)
 jwt = JWTManager(app)
-db = SQLAlchemy(app)
-migrate = Migrate(app,db)
-bcrypt = Bcrypt(app)
-CORS (app , supports_credentials=True)
+api = Api(app)
+CORS(app, supports_credentials=True)
 
 
-from server.resources import (
+from resources import (
     CompanyResource, GetAllCompanies,
     UserSignup, GetAllUsers,
     DepartmentResource, GetAllDepartments,
@@ -113,3 +111,8 @@ api.add_resource(SuperAdminResource,
 api.add_resource(CompaniesGrouped,
     '/companies/grouped'         # GET grouped by approval
 )
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()  # Create tables if they don't exist
+    app.run(debug=True, host='0.0.0.0', port=5000)

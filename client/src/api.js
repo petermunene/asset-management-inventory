@@ -1,5 +1,3 @@
-
-
 //api.js
 
 const API_BASE = "http://localhost:5000";
@@ -10,28 +8,36 @@ async function request(endpoint, method = "GET", body = null) {
     };
   
     const res = await fetch(`${API_BASE}${endpoint}`, {
-      method,
-      headers,
-      body: body ? JSON.stringify(body) : null,
-      credentials: "include",
-    });
-  
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : null,
+    credentials: "include",
+  });
+
+  let data;
+
+  try {
     const contentType = res.headers.get("Content-Type");
-    let data;
-  
+
     if (contentType && contentType.includes("application/json")) {
       data = await res.json();
     } else {
       const text = await res.text();
-      data = { error: text };
+      data = { message: text };
     }
-  
-    if (!res.ok) {
-      console.error(`Error ${res.status}: ${res.statusText}`, data);
-      throw new Error(data.error || "Fetch request failed");
-    }
-  
-    return data;
+  } catch (parseError) {
+    console.error("Error parsing response:", parseError);
+    // If we can't parse the response, create a generic error
+    data = { error: `HTTP ${res.status}: ${res.statusText}` };
+  }
+
+  if (!res.ok) {
+    console.error(`Error ${res.status}: ${res.statusText}`, data);
+    const errorMessage = data.error || data.message || `HTTP ${res.status}: ${res.statusText}`;
+    throw new Error(errorMessage);
+  }
+
+  return data;
   }
 
 // ──────── AUTH ────────

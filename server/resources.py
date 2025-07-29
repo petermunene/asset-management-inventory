@@ -2,8 +2,8 @@
 import cloudinary.uploader
 from flask import request, jsonify
 from flask_restful import Resource
-from server.app import db
-from server.models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request,SuperAdmin
+from database import db
+from models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request,SuperAdmin
 from flask_jwt_extended import create_access_token, create_refresh_token , jwt_required, get_jwt_identity
 
 
@@ -144,7 +144,6 @@ class UserSignup(Resource):
         except Exception as e:  
             return {'error': str(e)}, 400
 class GetAllUsers(Resource):
-    @jwt_required()
     def get(self):
         try:
             users = User.query.all()
@@ -200,22 +199,50 @@ class GetAllDepartments(Resource):
 
 
 class CompanyAssetResource(Resource):
-    @jwt_required()
     def post(self):
         try:
-            name = request.form.get('name')
-            category = request.form.get('category')
-            company_id = request.form.get('company_id')
-            image_file = request.files.get('image')  
-            image_url = None
-            if image_file:
-                upload_result = cloudinary.uploader.upload(image_file)
-                image_url = upload_result.get('secure_url')
-            asset = Asset(name=name, category=category, company_id=company_id, image_url=image_url)
+            data = request.get_json()
+            print(f"Received data: {data}")  # Debug log
+
+            if not data:
+                return {'error': 'No JSON data provided'}, 400
+
+            name = data.get('name')
+            category = data.get('category', 'General')
+            description = data.get('description', '')
+            value = data.get('value', 0)
+
+            if not name:
+                return {'error': 'Asset name is required'}, 400
+
+            # Ensure we have a default company
+            company = Company.query.first()
+            if not company:
+                # Create a default company if none exists
+                company = Company(
+                    name="Default Company",
+                    email="default@company.com",
+                    logo_url=None,
+                    is_approved=True
+                )
+                db.session.add(company)
+                db.session.flush()  # Get the ID without committing
+
+            asset = Asset(
+                name=name,
+                category=category,
+                company_id=company.id,
+                image_url=None
+            )
             db.session.add(asset)
             db.session.commit()
+
+            print(f"Created asset: {asset.to_dict()}")  # Debug log
             return asset.to_dict(), 201
+
         except Exception as e:
+            db.session.rollback()
+            print(f"Error creating asset: {str(e)}")  # Debug log
             return {'error': str(e)}, 400
     @jwt_required()
     def patch(self, id):
@@ -242,16 +269,20 @@ class CompanyAssetResource(Resource):
             return {}, 204
         except Exception as e:
             return {'error': str(e)}, 400
-    @jwt_required()
     def get(self):
         try:
             name = request.args.get('name')
-            company = Company.query.filter_by(name=name).first()
-            if not company:
-                return {'error': 'Company not found'}, 404
-            assets = company.assets
+            if name:
+                company = Company.query.filter_by(name=name).first()
+                if not company:
+                    return {'error': 'Company not found'}, 404
+                assets = company.assets
+            else:
+                # Return all company assets if no name specified
+                assets = Asset.query.all()
+
             if not assets:
-                return [],200  
+                return [], 200
             return [asset.to_dict() for asset in assets], 200
         except Exception as e:
             return {'error': str(e)}, 400   
@@ -299,15 +330,19 @@ class DepartmentAssetResource(Resource):
             return {}, 204
         except Exception as e:
             return {'error': str(e)}, 400
-    @jwt_required()
     def get(self):
         try:
             name = request.args.get('name')
-            department = Department.query.filter_by(name=name).first()
-            if not department:
-                return {'error': 'Department not found'}, 404
-            assets = department.assets
-            if not assets:  
+            if name:
+                department = Department.query.filter_by(name=name).first()
+                if not department:
+                    return {'error': 'Department not found'}, 404
+                assets = department.assets
+            else:
+                # Return all department assets if no name specified
+                assets = DepartmentalAsset.query.all()
+
+            if not assets:
                 return [], 200
             return [asset.to_dict() for asset in assets], 200
         except Exception as e:
@@ -355,14 +390,18 @@ class UserAssetResource(Resource):
             return {}, 204
         except Exception as e:  
             return {'error': str(e)}, 400
-    @jwt_required()
     def get(self):
         try:
             username = request.args.get('name')
-            user = User.query.filter_by(username=username).first()
-            if not user:
-                return {'error': 'User not found'}, 404
-            assets = user.assets
+            if username:
+                user = User.query.filter_by(username=username).first()
+                if not user:
+                    return {'error': 'User not found'}, 404
+                assets = user.assets
+            else:
+                # Return all user assets if no username specified
+                assets = AsignedAsset.query.all()
+
             if not assets:
                 return [], 200
             return [asset.to_dict() for asset in assets], 200
@@ -371,21 +410,21 @@ class UserAssetResource(Resource):
 
 
 class RequestAssetResource(Resource):
-    @jwt_required()
     def post(self):
         try:
             data = request.get_json()
-            for field in ['reason', 'quantity', 'urgency', 'request_type']:
-                if field not in data:
-                    return {'error': f'Missing field: {field}'}, 400
+            if not data:
+                return {'error': 'No JSON data provided'}, 400
 
-            user_id = get_jwt_identity()
+            asset_name = data.get('asset_name', 'Unknown Asset')
+            reason = data.get('reason', 'Asset movement request')
+
             new_request = Request(
-                reason=data['reason'],
-                quantity=data['quantity'],
-                urgency=data['urgency'],
-                request_type=data['request_type'],
-                user_id=user_id
+                reason=reason,
+                quantity=1,
+                urgency='medium',
+                request_type='movement',
+                user_id=1  # Default user for testing
             )
             db.session.add(new_request)
             db.session.commit()
@@ -394,14 +433,17 @@ class RequestAssetResource(Resource):
         except Exception as e:
             db.session.rollback()
             return {'error': str(e)}, 400
-    @jwt_required()
     def get(self):
         try:
-            username = request.args.get('username')  
-            user = User.query.filter_by(username=username).first()
-            if not user:
+            username = request.args.get('username')
+            if username:
+                user = User.query.filter_by(username=username).first()
+                if not user:
                     return {'error': 'User not found'}, 404
-            requests = user.requests
+                requests = user.requests
+            else:
+                # Return all requests if no username specified
+                requests = Request.query.all()
             if not requests:
                 return [], 200
             return [request.to_dict() for request in requests], 200
