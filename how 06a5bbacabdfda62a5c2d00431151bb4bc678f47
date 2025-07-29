@@ -1,0 +1,30 @@
+[33mcommit e63551fddbd6cf6122d59fbf719b4ddd1bd75c9d[m
+Merge: e799d39 1932223
+Author: petermunene <peter.munene@student.moringaschool.com>
+Date:   Sun Jul 20 15:39:17 2025 +0300
+
+    WIP on main: e799d39 migrations cloudinary intergration
+
+[1mdiff --cc client/src/api.js[m
+[1mindex 12cb1d9,12cb1d9..614c4af[m
+[1m--- a/client/src/api.js[m
+[1m+++ b/client/src/api.js[m
+[36m@@@ -1,7 -1,7 +1,5 @@@[m
+[31m--[m
+[31m--[m
+[31m--//api.js[m
+[31m--[m
+[32m++// ──────── API UTILITY ────────[m
+[32m++// This module provides functions to interact with the backend API.[m
+  const API_BASE = "http://localhost:5000";[m
+  [m
+  async function request(endpoint, method = "GET", body = null) {[m
+[36m@@@ -69,7 -69,7 +67,7 @@@[m [mexport function fetchAllCompanies() [m
+  }[m
+  [m
+  export function fetchGroupedCompanies() {[m
+[31m--  return request("/companies/grouped");[m
+[32m++  return request("/companies/grouped");//pending and approved companies[m
+  }[m
+  [m
+  // ──────── USERS ────────[m

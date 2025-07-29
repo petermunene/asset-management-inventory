@@ -2,8 +2,8 @@
 import cloudinary.uploader
 from flask import request, jsonify
 from flask_restful import Resource
-from database import db
-from models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request,SuperAdmin
+from server.app import db
+from server.models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request
 from flask_jwt_extended import create_access_token, create_refresh_token , jwt_required, get_jwt_identity
 
 
@@ -448,6 +448,15 @@ class RequestAssetResource(Resource):
                 return [], 200
             return [request.to_dict() for request in requests], 200
         except Exception as e:  
+            return {'error': str(e)}, 400
+class AllRequests(Resource):
+    def get(self):
+        try:
+            requests = Request.query.all()
+            if not requests:
+                return [], 200
+            return [request.to_dict() for request in requests], 200
+        except Exception as e:
             return {'error': str(e)}, 400
 
 class UserLogin(Resource):

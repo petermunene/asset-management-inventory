@@ -1,34 +1,28 @@
 #app.py
 
-
+import os
 from flask import Flask
 from flask_cors import CORS
 from flask_restful import Api
 from flask_jwt_extended import JWTManager
-from database import db, migrate, bcrypt
+from dotenv import load_dotenv
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
-
+load_dotenv()
 cloudinary.config(
   cloud_name="dqdxhajo1",
   api_key="156916228529995",
-  api_secret="Siir6pT6E04Q_T2U_xPxtCuVMfE",
+  api_secret=os.getenv('CLOUDINARY_API_SECRET'),
   secure=True
 )
-
-import os
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///assets_management.db'  # Use SQLite for simplicity
-app.config['JWT_SECRET_KEY'] = 'stenoh,munene,leon,howard,cynthia'
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 900
-app.config['JWT_REFRESH_TOKEN_EXPIRES'] = 2592000
-
-# Initialize extensions
-db.init_app(app)
-migrate.init_app(app, db)
-bcrypt.init_app(app)
+app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user2:muriukimunene@localhost:5432/assets_management_db'
+api = Api(app)
+app.config['JWT_SECRET_KEY'] = os.getenv('APP_SECRET_KEY')
+app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 900  
+app.config['JWT_REFRESH_TOKEN_EXPIRES'] = 2592000 
 jwt = JWTManager(app)
 api = Api(app)
 CORS(app, supports_credentials=True)
@@ -40,7 +34,7 @@ from resources import (
     DepartmentResource, GetAllDepartments,
     CompanyAssetResource, DepartmentAssetResource, UserAssetResource,
     RequestAssetResource, UserLogin,
-    SuperAdminResource, CompaniesGrouped
+    SuperAdminResource, CompaniesGrouped,AllRequests
 )
 
 # Company routes
@@ -99,6 +93,9 @@ api.add_resource(UserAssetResource,
 api.add_resource(RequestAssetResource,
     '/asset-requests',           # POST
     '/asset-requests/get'        # GET requests by username
+)
+api.add_resource(AllRequests,
+    '/asset-requests/all'        # GET all requests
 )
 
 # SuperAdmin
