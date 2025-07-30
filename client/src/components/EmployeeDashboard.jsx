@@ -23,7 +23,8 @@ const EmployeeDashboard = () => {
   const [newRequestForm, setNewRequestForm] = useState({
     reason: '',
     urgency: 'medium',
-    request_type: 'equipment'
+    request_type: 'equipment',
+    quantity: 0
   });
   const location = useLocation();
   
@@ -111,7 +112,7 @@ const EmployeeDashboard = () => {
       });
 
       setRequests(prev => [newRequest, ...prev]);
-      setNewRequestForm({ reason: '', urgency: 'medium', request_type: 'equipment' });
+      setNewRequestForm({ reason: '', urgency: 'medium', request_type: 'equipment',quantity: 0 });
 
       // Update stats
       setStats(prev => ({ ...prev, activeRequests: prev.activeRequests + 1 }));
@@ -308,6 +309,18 @@ const EmployeeDashboard = () => {
                 <option value="upgrade">Upgrade</option>
               </select>
             </div>
+            <div className="form-group">
+            <label>Quantity</label>
+            <input
+              type="number"
+              name="quantity"
+              value={newRequestForm.quantity}
+              onChange={(e) => setNewRequestForm(prev => ({ ...prev, quantity: e.target.value }))}
+              placeholder="0"
+              className="form-input"
+              min="0"
+            />
+          </div>
           </div>
           <button type="submit" className="submit-btn">Submit Request</button>
         </form>
