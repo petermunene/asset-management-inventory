@@ -117,7 +117,10 @@ const UserRequestsView = ({ onClose }) => {
     const user = users.find(u => u.id === userId);
     return user ? user.name || user.username || `User #${userId}` : `User #${userId}`;
   };
-
+  const departmentName = (userId) => {
+    const user = users.find(u => u.id === userId);
+   return getDepartmentName(user?.department_id);
+  };
   const getDepartmentName = (departmentId) => {
     const dept = departments.find(d => d.id === departmentId);
     return dept ? dept.name : `Department #${departmentId}`;
@@ -303,7 +306,7 @@ const UserRequestsView = ({ onClose }) => {
                       
                       <div className="info-row">
                         <span className="info-label">Department:</span>
-                        <span className="info-value">{getDepartmentName(request.department_id)}</span>
+                        <span className="info-value">{departmentName(request.user_id)}</span>
                       </div>
                       
                       <div className="info-row">
