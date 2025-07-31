@@ -30,7 +30,7 @@ const HomePage = () => {
     <div className='full-width-container'>
       {/* Navbar */}
       <nav className="navbar">
-        <div className="navbar-container">
+        <div className="navbar-containers">
           <div className="navbar-brand">Asset Flow</div>
           
           <div className={`navbar-links ${isMenuOpen ? 'active' : ''}`}>

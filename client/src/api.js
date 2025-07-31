@@ -1,6 +1,6 @@
-//api.js
+//api.js          
 
-const API_BASE = import.meta.env.VITE_API_BASE;
+const API_BASE = 'https://asset-management-inventory-rcve.onrender.com';
 async function request(endpoint, method = "GET", body = null, retry = true) {
   let token = localStorage.getItem("accessToken");
   const headers = {

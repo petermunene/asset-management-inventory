@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {userSignup,companySignup} from "../api"; // Adjust the import path as necessary
 
@@ -12,17 +13,17 @@ const CompanySignup = () => {
   });
 
   const [adminData, setAdminData] = useState({
-    fullName: "",
+    username: "",
     email: "",
     password: "",
   });
-
+  const navigate = useNavigate();
   // ⬇️ Inject mobile styles once on mount
   useEffect(() => {
     const styleTag = document.createElement("style");
     styleTag.innerHTML = `
       @media (max-width: 768px) {
-        .card {
+        .cardinfo {
           flex-direction: column !important;
           height: auto !important;
           width: 95% !important;
@@ -186,23 +187,32 @@ const CompanySignup = () => {
     CompanyData.append("name", companyData.name);
     CompanyData.append("email", companyData.email);
     CompanyData.append("logo_url", companyData.logo);
-    const AdminData = {
-      fullName: adminData.fullName,
-      email: adminData.email,
-      password: adminData.password,
-      role : "admin",
-    };
     try {
       
       const companyResponse = await companySignup(CompanyData);
       console.log("Company created:", companyResponse);
+    // 🟡 Depending on your API, adjust how to get the ID:
+    const companyId = companyResponse.id || companyResponse.data?.id;
 
-      
-      const adminResponse = await userSignup(AdminData);
-      console.log("Admin created:", adminResponse);
+    if (!companyId) {
+      throw new Error("Failed to retrieve company ID from response.");
+    }
 
-      
-      alert("Company and Admin account created successfully!");
+    
+    const AllAdminData = {
+      username: adminData.username,
+      email: adminData.email,
+      password: adminData.password,
+      role: "company_admin",
+      company_id: companyId, // ✅ Add the ID here
+    };
+
+    // 3. Create the admin user
+    const adminResponse = await userSignup(AllAdminData);
+    console.log("Admin created:", adminResponse);
+
+    alert("Company and Admin account created successfully!");
+    navigate("/login"); 
     }
     catch (error) {
       console.error("Error during signup:", error);
@@ -239,7 +249,7 @@ const CompanySignup = () => {
       ))}
 
       <motion.div
-        className="card"
+        className="cardinfo"
         style={cardStyle}
         variants={cardVariants}
         initial="hidden"
@@ -327,7 +337,7 @@ const CompanySignup = () => {
                   marginTop: "10px"
                 }}>
                   Upload Logo
-                </label> <br></br>
+                </label> <br></br><br></br>
                 <motion.input
                   name="logo"
                   required
@@ -362,9 +372,9 @@ const CompanySignup = () => {
                 <h2>Admin Sign Up</h2>
 
                 <motion.input
-                  name="fullName"
+                  name="username"
                   required
-                  value={adminData.fullName}
+                  value={adminData.username}
                   onChange={handleAdminChange}
                   type="text"
                   placeholder="Full Name"

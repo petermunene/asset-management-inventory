@@ -9,7 +9,7 @@ import CompanySignup from './components/SignUp';
 import HomePage from './components/HomePage'  ;
 import Login from './components/Login';
 import AdminDashboardPage from './components/AdminDashBoard';
-import  './App.css';
+
 function App() {
   return (
     <Router>
