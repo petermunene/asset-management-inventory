@@ -1,5 +1,5 @@
-from server.app import app , db
-from server.models import Company, Department, User, Request
+from app import app , db
+from models import Company, Department, User, Request
 
 # Optional: For hashing
 from flask_bcrypt import Bcrypt

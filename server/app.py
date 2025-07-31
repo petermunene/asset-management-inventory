@@ -2,7 +2,7 @@
 
 import os
 from flask import Flask
-from server.extensions import migrate, bcrypt , db
+from extensions import migrate, bcrypt , db
 from flask_cors import CORS
 from flask_restful import Api
 from flask_jwt_extended import JWTManager
@@ -33,7 +33,7 @@ CORS (app , supports_credentials=True)
 
 
 
-from server.resources import (
+from resources import (
     CompanyResource, GetAllCompanies,
     UserSignup, GetAllUsers,
     DepartmentResource, GetAllDepartments,

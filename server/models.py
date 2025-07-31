@@ -1,7 +1,7 @@
 #models.py
 
 
-from server.extensions import db,bcrypt
+from extensions import db,bcrypt
 from sqlalchemy_serializer import SerializerMixin
 from sqlalchemy import Numeric
 from sqlalchemy.ext.associationproxy import association_proxy

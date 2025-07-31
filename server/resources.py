@@ -2,8 +2,8 @@
 import cloudinary.uploader
 from flask import request, jsonify , make_response
 from flask_restful import Resource
-from server.extensions import db
-from server.models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request
+from extensions import db
+from models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request
 from flask_jwt_extended import create_access_token, create_refresh_token , jwt_required, get_jwt_identity,verify_jwt_in_request
 import smtplib
 from email.mime.text import MIMEText
