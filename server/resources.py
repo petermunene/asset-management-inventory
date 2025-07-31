@@ -446,41 +446,80 @@ class AllUserAssets(Resource):
 
 
 class RequestAssetResource(Resource):
+    @jwt_required()  # Requires JWT authentication
     def post(self):
         try:
+            # Get and validate input data
             data = request.get_json()
             if not data:
                 return {'error': 'No JSON data provided'}, 400
 
-            asset_name = data.get('asset_name', 'Unknown Asset')
-            reason = data.get('reason', 'Asset movement request')
+            # Get current user from JWT token
+            current_user_id = get_jwt_identity()
+            current_user = User.query.get(current_user_id)
+            
+            if not current_user:
+                return {'error': 'User not found'}, 404
 
+            # Validate required fields
+            if not data.get('reason'):
+                return {'error': 'Reason is required'}, 400
+            if not data.get('request_type'):
+                return {'error': 'Request type is required'}, 400
+
+            # Create new request
             new_request = Request(
-                reason=reason,
-                quantity=1,
-                urgency='medium',
-                request_type='movement',
-                user_id=1  # Default user for testing
+                reason=data['reason'],
+                quantity=data.get('quantity', 1),
+                urgency=data.get('urgency', 'medium'),
+                request_type=data['request_type'],
+                user_id=current_user.id,  # Proper user assignment
+                status='pending'  # Default status
             )
+
             db.session.add(new_request)
             db.session.commit()
 
-            return new_request.to_dict(only=('id','reason','quantity','urgency','request_type','status','user_id')), 201
+            # Return created request with serialized fields
+            return new_request.to_dict(only=(
+                'id',
+                'reason',
+                'quantity',
+                'urgency',
+                'request_type',
+                'status',
+                'user_id'
+            )), 201
+
         except Exception as e:
             db.session.rollback()
-            return {'error': str(e)}, 400
+            current_app.logger.error(f"Request creation failed: {str(e)}")
+            return {'error': 'Failed to create request'}, 500
+
     def get(self):
         try:
-            username = request.args.get('username')  
+            username = request.args.get('username')
+            if not username:
+                return {'error': 'Username parameter is required'}, 400
+                
             user = User.query.filter_by(username=username).first()
             if not user:
-                    return {'error': 'User not found'}, 404
-            requests = user.requests
-            if not requests:
-                return [], 200
-            return [request.to_dict(only=('id','reason','quantity','urgency','request_type','status','user_id')) for request in requests], 200
-        except Exception as e:  
-            return {'error': str(e)}, 400
+                return {'error': 'User not found'}, 404
+
+            requests = Request.query.filter_by(user_id=user.id).all()
+            return [req.to_dict(only=(
+                'id',
+                'reason',
+                'quantity',
+                'urgency',
+                'request_type',
+                'status',
+                'user_id'
+            )) for req in requests], 200
+
+        except Exception as e:
+            current_app.logger.error(f"Request retrieval failed: {str(e)}")
+            return {'error': 'Failed to retrieve requests'}, 500
     def patch(self, id):
         try:
             req = Request.query.get(id)
