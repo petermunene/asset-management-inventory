@@ -19,7 +19,7 @@ cloudinary.config(
 )
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_DATABASE_URI'] = 'postgresql://user2:muriukimunene@localhost:5432/assets_management_db'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv("DATABASE_URL")
 api = Api(app)
 app.config['JWT_SECRET_KEY'] = os.getenv('APP_SECRET_KEY')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 900  
