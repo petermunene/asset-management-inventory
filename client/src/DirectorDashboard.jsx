@@ -11,7 +11,7 @@ import {
   createCompanyAsset,
   createAssetRequest
 } from './api.js';
-import './App.css';
+
 import AssetCreationForm from './components/AssetCreationForm';
 import AssetManagement from './components/AssetManagement';
 import DepartmentManagement from './components/DepartmentManagement';
@@ -249,6 +249,7 @@ const DirectorDashboard = () => {
   }
 
   return (
+    <div className='page-wrapper'>
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1 className="dashboard-title">Asset Manager</h1>
@@ -404,6 +405,7 @@ const DirectorDashboard = () => {
           onClose={() => setShowUserRequests(false)}
         />
       )}
+    </div>
     </div>
   );
 };
