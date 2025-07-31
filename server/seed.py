@@ -73,8 +73,16 @@ def seed():
             department_id=None  
         )
         user4.hash_password = "superadminpass"
+        user5= User(
+            username="cynthia",
+            email="cynthia@techcorp.com",
+            role="company_admin",
+            company_id=company1.id,
+            department_id=dept2.id
+        )
+        user5.hash_password = "adminpass"
 
-        db.session.add_all([user1, user2, user3,user4])
+        db.session.add_all([user1, user2, user3,user4,user5])
         db.session.flush()
 
         # ----- Create Requests -----

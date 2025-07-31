@@ -340,7 +340,7 @@ const DirectorDashboard = () => {
             </div>
           </div>
           <div className="section-buttons">
-            <button className="primary-button" onClick={() => setShowDepartmentManagement(true)}>Manage Departments</button>
+            <button className="primary-button" onClick={() => setShowDepartmentManagement(!showDepartmentManagement)}>Manage Departments</button>
             <button className="secondary-button" onClick={() => setShowUserRequests(true)}>
               <span className="button-icon">📋</span>
               View User Requests
@@ -394,7 +394,7 @@ const DirectorDashboard = () => {
       {showDepartmentManagement && (
         <DepartmentManagement
           companyId={companyId}
-          onClose={() => setShowDepartmentManagement(false)}
+          onClose={() => setShowDepartmentManagement(!showDepartmentManagement)}
         />
       )}
 

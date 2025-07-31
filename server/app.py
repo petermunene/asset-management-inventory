@@ -24,6 +24,7 @@ api = Api(app)
 app.config['JWT_SECRET_KEY'] = os.getenv('APP_SECRET_KEY')
 app.config['JWT_ACCESS_TOKEN_EXPIRES'] = 900  
 app.config['JWT_REFRESH_TOKEN_EXPIRES'] = 2592000 
+app.config['JWT_COOKIE_CSRF_PROTECT'] = False
 jwt = JWTManager(app)
 db.init_app(app)
 migrate.init_app(app, db)
@@ -38,9 +39,10 @@ from server.resources import (
     DepartmentResource, GetAllDepartments,
     CompanyAssetResource, DepartmentAssetResource, UserAssetResource,
     RequestAssetResource, UserLogin,
-    SuperAdminResource, CompaniesGrouped,AllRequests
+    SuperAdminResource, CompaniesGrouped,AllRequests,AllUserAssets,RefreshTokenResource
 )
-
+# JWT token refresh route
+api.add_resource(RefreshTokenResource, '/refresh')
 # Company routes
 api.add_resource(CompanyResource,
     '/companies/signup',         # POST
@@ -92,12 +94,17 @@ api.add_resource(UserAssetResource,
     '/user-assets/<int:id>',     # PATCH, DELETE
     '/user-assets/get'           # GET assets by username
 )
+api.add_resource(AllUserAssets,
+    '/user-assets/all'           # GET all user assets
+)
 
 # Asset requests
 api.add_resource(RequestAssetResource,
     '/asset-requests',           # POST
-    '/asset-requests/get'        # GET requests by username
+    '/asset-requests/get' ,       # GET requests by username
+    '/asset-requests/<int:id>'  # PATCH to approve/reject request
 )
+
 api.add_resource(AllRequests,
     '/asset-requests/all'        # GET all requests
 )

@@ -1,12 +1,12 @@
 //api.js
 
 const API_BASE = "http://localhost:5000";
-const token = localStorage.getItem('accessToken');
-async function request(endpoint, method = "GET", body = null) {
-
+async function request(endpoint, method = "GET", body = null, retry = true) {
+  let token = localStorage.getItem("accessToken");
   const headers = {
     'Authorization': `Bearer ${token}`,
   };
+
   let payload = body;
   if (body && !(body instanceof FormData)) {
     headers["Content-Type"] = "application/json";
@@ -19,6 +19,20 @@ async function request(endpoint, method = "GET", body = null) {
     body: payload,
     credentials: "include",
   });
+
+  if (res.status === 401 && retry) {
+    try {
+      
+      localStorage.setItem("accessToken", newToken);
+      return request(endpoint, method, body, false); // retry once with new token
+    } catch (err) {
+      throw new Error("Session expired. Please log in again.");
+    }
+  }
+
+  if (res.status === 204) {
+    return null;
+  }
 
   const contentType = res.headers.get("Content-Type");
   let data;
@@ -37,6 +51,8 @@ async function request(endpoint, method = "GET", body = null) {
 
   return data;
 }
+
+
 // ──────── AUTH ────────
 export function userLogin(credentials) {
   return request("/users/login", "POST", credentials);
@@ -177,7 +193,7 @@ export function deleteUserAsset(id) {
 }
 
 export function fetchAllUserAssets() {
-  return request("/user-assets/get");
+  return request("/user-assets/all");
 }
 
 // ──────── ASSET REQUESTS ────────
@@ -198,4 +214,31 @@ export function fetchAssetRequests(name) {
 }
 export function fetchAllAssetRequests() {
   return request("/asset-requests/all");
+}
+export async function refreshToken() {
+  console.log(`Bearer ${localStorage.getItem("refreshToken")}`);
+  const res = await fetch(`${API_BASE}/refresh`, {
+    method: "POST",
+    credentials: "include", 
+    body: JSON.stringify({}),
+    // headers:{
+    //   Authorization:`Bearer ${localStorage.getItem("refreshToken")}`,
+    // }
+  });
+
+  if (!res.ok) {
+    throw new Error("Failed to refresh tokens");
+  }
+
+  const data = await res.json();
+  localStorage.setItem("accessToken", data.access_token);
+  return data.access_token;
+}
+export function startTokenRefreshCycle() {
+  refreshToken(); 
+  return setInterval(() => {
+    refreshToken().catch(() => {
+      console.warn("Failed to refresh token");
+    });
+  }, 4 * 60 * 1000); 
 }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { userLogin } from '../api';
+import { userLogin ,startTokenRefreshCycle} from '../api';
 import { FiUser, FiLock, FiArrowRight } from 'react-icons/fi';
 import './Login.css';
 
@@ -28,14 +28,16 @@ const Login = () => {
     try {
       const response = await userLogin(credentials);
       console.log(response)
-      if (response) {      localStorage.setItem('accessToken', response.access_token);
+      if (response) {     
+        localStorage.setItem('accessToken', response.access_token);
         localStorage.setItem('refreshToken', response.refresh_token);
         localStorage.setItem('user', JSON.stringify(response.user));
+        startTokenRefreshCycle();
         console.log('Login response:', response);
         switch(response.user.role.toLowerCase()) {
           case 'manager':
             navigate('/manager-dashboard', {
-              state: { userId: response.user.id }
+              state: { deptId: response.user.department_id }
             });
             break;
           case 'employee':
@@ -55,7 +57,7 @@ const Login = () => {
             break;
           case 'company_admin':
             navigate('/admin-dashboard', {
-              state: { userId: response.user.id }
+              state: { company_id: response.user.company_id }
             });
             break;
           default:

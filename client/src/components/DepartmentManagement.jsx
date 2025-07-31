@@ -9,7 +9,7 @@ import {
 } from '../api.js';
 import './DepartmentManagement.css';
 
-const DepartmentManagement = ({ companyId }) => {
+const DepartmentManagement = ({ companyId,onClose }) => {
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,7 +35,7 @@ const DepartmentManagement = ({ companyId }) => {
   }, [isOpen, companyId]);
 
   const handleClose = () => {
-    setIsOpen(false);
+    onClose();
     resetState();
   };
 

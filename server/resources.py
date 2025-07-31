@@ -1,10 +1,10 @@
 #resources.py
 import cloudinary.uploader
-from flask import request, jsonify
+from flask import request, jsonify , make_response
 from flask_restful import Resource
 from server.extensions import db
 from server.models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request
-from flask_jwt_extended import create_access_token, create_refresh_token , jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, create_refresh_token , jwt_required, get_jwt_identity,verify_jwt_in_request
 import smtplib
 from email.mime.text import MIMEText
 import os 
@@ -99,7 +99,7 @@ class CompanyResource(Resource):
             subject="Company Account Deleted",
             message=f"Dear {company.name}, your company has been deleted from our system."
             )
-            return {}, 204
+            return None, 204 
         except Exception as e:
             return {'error': str(e)}, 400
     @jwt_required()
@@ -138,6 +138,15 @@ class UserSignup(Resource):
             user.hash_password = data['password']
             db.session.add(user)
             db.session.commit()
+            send_email(
+                to_email=user.email,
+                subject="Welcome to Our Platform",
+                message=f"""Hello {user.username}, your account has been created successfully.
+
+            Kindly contact your company admin to guide you on how to login and use the platform.
+
+            Thank you for joining us — can't wait to help you streamline your assets!"""
+            )
             return user.to_dict(only=('id', 'username', 'email', 'role','company_id','department_id')), 201
         except Exception as e:
             return {'error': str(e)}, 400
@@ -166,7 +175,7 @@ class UserSignup(Resource):
                 return {'error': 'User not found'}, 404
             db.session.delete(user)
             db.session.commit()
-            return {}, 204
+            return None, 204 
         except Exception as e:      
             return {'error': str(e)}, 400
     @jwt_required()
@@ -209,7 +218,7 @@ class DepartmentResource(Resource):
                 return {'error': 'Department not found'}, 404
             db.session.delete(dept)
             db.session.commit()
-            return {}, 204
+            return None, 204 
         except Exception as e:
             return {'error': str(e)}, 400
     @jwt_required()
@@ -278,7 +287,7 @@ class CompanyAssetResource(Resource):
                 return {'error': 'Asset not found'}, 404
             db.session.delete(asset)
             db.session.commit()
-            return {}, 204
+            return None, 204 
         except Exception as e:
             return {'error': str(e)}, 400
     def get(self):
@@ -339,7 +348,7 @@ class DepartmentAssetResource(Resource):
                 return {'error': 'Department asset not found'}, 404
             db.session.delete(d_asset)
             db.session.commit()
-            return {}, 204
+            return None, 204 
         except Exception as e:
             return {'error': str(e)}, 400
     def get(self):
@@ -399,16 +408,36 @@ class UserAssetResource(Resource):
                 return {'error': 'User asset not found'}, 404
             db.session.delete(asset)
             db.session.commit()
-            return {}, 204
+            return None, 204 
         except Exception as e:  
             return {'error': str(e)}, 400
     def get(self):
         try:
             username = request.args.get('username')
+            if not username:
+                return {'error': 'Username is required'}, 400
+
             user = User.query.filter_by(username=username).first()
             if not user:
                 return {'error': 'User not found'}, 404
-            assets = user.assets
+
+            assets = user.asigned_assets
+            if not assets:
+                return [], 200
+
+            return [asset.to_dict(only=(
+                'id', 'name', 'category', 'image_url', 'company_id', 'user_id'
+            )) for asset in assets], 200
+
+        except Exception as e:
+            import traceback
+            print("Unexpected error:", traceback.format_exc())
+            return {'error': str(e)}, 400
+class AllUserAssets(Resource):
+    @jwt_required()
+    def get(self):
+        try:
+            assets = AsignedAsset.query.all()
             if not assets:
                 return [], 200
             return [asset.to_dict(only=('id','name','category','image_url','company_id','user_id')) for asset in assets], 200
@@ -452,6 +481,30 @@ class RequestAssetResource(Resource):
             return [request.to_dict(only=('id','reason','quantity','urgency','request_type','status','user_id')) for request in requests], 200
         except Exception as e:  
             return {'error': str(e)}, 400
+    def patch(self, id):
+        try:
+            req = Request.query.get(id)
+            if not req:
+                return {'error': 'Request not found'}, 404
+
+            data = request.get_json()
+            if 'status' in data:
+                req.status = data['status']  
+
+            db.session.commit()
+            return req.to_dict(only=('id', 'reason', 'quantity', 'urgency', 'request_type', 'status', 'user_id')), 200  # ✅ Return the correct object
+        except Exception as e:
+            return {'error': str(e)}, 400
+    def delete(self, id):
+        try:
+            req = Request.query.get(id)
+            if not req:
+                return {'error': 'Request not found'}, 404
+            db.session.delete(req)
+            db.session.commit()
+            return None, 204 
+        except Exception as e:
+            return {'error': str(e)}, 400
 class AllRequests(Resource):
     def get(self):
         try:
@@ -467,17 +520,29 @@ class UserLogin(Resource):
         try:
             data = get_json_data('username', 'password')
             user = User.query.filter_by(username=data['username']).first()
+
             if user and user.authenticate(data['password']):
                 if user.role != 'super_admin':
                     if not user.company or not user.company.is_approved:
                         return {'error': 'Company not approved'}, 403
+
                 access_token = create_access_token(identity=user.id, additional_claims={'role': user.role})
                 refresh_token = create_refresh_token(identity=user.id)
-                return {
-                    'access_token': access_token,
+
+                # ✅ Set refresh_token as HttpOnly cookie
+                response = make_response({
                     'refresh_token': refresh_token,
+                    'access_token': access_token,
                     'user': user.to_dict(only=('id', 'username', 'email', 'role','company_id','department_id'))
-                }, 200
+                })
+                response.set_cookie(
+                    'refresh_token_cookie', refresh_token,
+                    httponly=True,
+                    secure=False,  # Set to True in production (HTTPS)
+                    samesite='Lax'
+                )
+                return response
+
             return {'error': 'Invalid username or password'}, 401
         except Exception as e:
             return {'error': str(e)}, 400
@@ -536,3 +601,14 @@ class CompaniesGrouped(Resource):
 
         except Exception as e:
             return {'error': str(e)}, 500
+class RefreshTokenResource(Resource):
+    # @jwt_required(refresh=True)
+    def post(self):
+        try:
+            verify_jwt_in_request(refresh=True, locations=["cookies"])
+            current_user_id = get_jwt_identity()
+            new_access_token = create_access_token(identity=current_user_id)
+            return {'access_token': new_access_token}, 200 
+        except Exception as e:
+            print("Error refreshing token:", e)
+            return {'error': str(e)}, 401
