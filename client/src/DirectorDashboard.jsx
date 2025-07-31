@@ -11,6 +11,7 @@ import {
   createCompanyAsset,
   createAssetRequest
 } from './api.js';
+import './App.css';
 import AssetCreationForm from './components/AssetCreationForm';
 import AssetManagement from './components/AssetManagement';
 import DepartmentManagement from './components/DepartmentManagement';
