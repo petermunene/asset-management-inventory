@@ -183,6 +183,17 @@ const CompanySignup = () => {
   };
 
   const handleFinalSubmit = async () => {
+    if (
+      !companyData.name ||
+      !companyData.email ||
+      !companyData.logo ||
+      !adminData.username ||
+      !adminData.email ||
+      !adminData.password
+    ) {
+      alert("Please fill in all company and admin details before submitting.");
+      return;
+    }
     const CompanyData = new FormData();
     CompanyData.append("name", companyData.name);
     CompanyData.append("email", companyData.email);
