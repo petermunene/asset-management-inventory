@@ -1,16 +1,24 @@
-#resources.py
+# resources.py
 import cloudinary.uploader
-from flask import request, jsonify , make_response
-from flask_restful import Resource
-from extensions import db
-from models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset , Request
-from flask_jwt_extended import create_access_token, create_refresh_token , jwt_required, get_jwt_identity,verify_jwt_in_request
 import smtplib
 from email.mime.text import MIMEText
-import os 
+import os
+from flask import request, jsonify, make_response, current_app
+from flask_restful import Resource
+from flask_jwt_extended import (
+    create_access_token, create_refresh_token, 
+    jwt_required, get_jwt_identity, verify_jwt_in_request
+)
+from extensions import db
+from models import Company, User, Department, Asset, DepartmentalAsset, AsignedAsset, Request
+
+
+# ==================== UTILITY FUNCTIONS ====================
+
 def send_email(to_email, subject, message):
-    from_email = os.getenv('EMAIL_ADDRESS')  # Your email address
-    password = os.getenv('EMAIL_PASSWORD')  # Your email password
+    """send email notification"""
+    from_email = os.getenv('EMAIL_ADDRESS')
+    password = os.getenv('EMAIL_PASSWORD')
 
     msg = MIMEText(message)
     msg['Subject'] = subject
@@ -23,111 +31,186 @@ def send_email(to_email, subject, message):
             smtp.sendmail(from_email, to_email, msg.as_string())
         return True
     except Exception as e:
-        print("Email failed:", e)
+        current_app.logger.error(f"Email failed: {e}")
         return False
 
-def get_json_data(*fields):
+
+def get_json_data(*required_fields):
+    """extract and validate required fields from json request"""
     data = request.get_json() or {}
-    missing = [f for f in fields if f not in data]
+    missing = [f for f in required_fields if f not in data]
     if missing:
         raise ValueError(f"Missing fields: {', '.join(missing)}")
     return data
 
 
+def upload_file(file_field, error_msg="File is required"):
+    """handle file upload to cloudinary"""
+    file = request.files.get(file_field)
+    if not file:
+        raise ValueError(error_msg)
+    
+    upload_result = cloudinary.uploader.upload(file)
+    return upload_result.get('secure_url')
 
+
+def get_or_404(model, obj_id, error_msg):
+    """get object by id or return 404 error"""
+    obj = model.query.get(obj_id)
+    if not obj:
+        return None, {'error': error_msg}, 404
+    return obj, None, None
+
+
+def update_object(obj, data, allowed_fields):
+    """update object attributes from data dict"""
+    for field in allowed_fields:
+        if field in data:
+            setattr(obj, field, data[field])
+
+
+# ==================== BASE RESOURCE CLASSES ====================
+
+class BaseResource(Resource):
+    """base resource class with common CRUD operations"""
+    
+    model = None
+    allowed_fields = []
+    serialize_fields = ()
+    
+    @jwt_required()
+    def patch(self, id):
+        """update resource by id"""
+        try:
+            obj, error, status = get_or_404(self.model, id, f'{self.model.__name__} not found')
+            if error:
+                return error, status
+            
+            data = request.get_json()
+            update_object(obj, data, self.allowed_fields)
+            db.session.commit()
+            
+            return obj.to_dict(only=self.serialize_fields), 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+    
+    @jwt_required()
+    def delete(self, id):
+        """delete resource by id"""
+        try:
+            obj, error, status = get_or_404(self.model, id, f'{self.model.__name__} not found')
+            if error:
+                return error, status
+            
+            db.session.delete(obj)
+            db.session.commit()
+            return None, 204
+        except Exception as e:
+            return {'error': str(e)}, 400
+    
+    def get(self):
+        """get resource by name/username parameter"""
+        try:
+            name_field = getattr(self, 'name_field', 'name')
+            param_value = request.args.get(name_field)
+            
+            if not param_value:
+                return {'error': f'{name_field.capitalize()} parameter required'}, 400
+            
+            filter_kwargs = {name_field: param_value}
+            obj = self.model.query.filter_by(**filter_kwargs).first()
+            
+            if not obj:
+                return {'error': f'{self.model.__name__} not found'}, 404
+            
+            return obj.to_dict(only=self.serialize_fields), 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+
+
+class BaseListResource(Resource):
+    """base class for listing all resources"""
+    
+    model = None
+    serialize_fields = ()
+    
+    def get(self):
+        """get all resources"""
+        try:
+            items = self.model.query.all()
+            if not items:
+                return [], 200
+            return [item.to_dict(only=self.serialize_fields) for item in items], 200
+        except Exception as e:
+            return {'error': str(e)}, 400
+
+
+# ==================== COMPANY RESOURCES ====================
 
 class CompanyResource(Resource):
     def post(self):
+        """create new company with logo upload"""
         try:
             name = request.form.get('name')
             email = request.form.get('email')
-            logo_file = request.files.get('logo_url')  
-
-            if not logo_file:
-                return {'error': 'Logo file is required'}, 400
-
-            upload_result = cloudinary.uploader.upload(logo_file)
-            logo_url = upload_result.get('secure_url')
+            
+            logo_url = upload_file('logo_url', 'Logo file is required')
+            
             company = Company(name=name, email=email, logo_url=logo_url)
             db.session.add(company)
             db.session.commit()
-
+            
             return company.to_dict(only=('id', 'name', 'email', 'logo_url', 'is_approved')), 201
-
+        except ValueError as e:
+            return {'error': str(e)}, 400
         except Exception as e:
             return {'error': str(e)}, 400
-
+    
     @jwt_required()
-    def patch(self,id):
+    def patch(self, id):
+        """update company approval status and send notification"""
         try:
-            company = Company.query.get(id)
-            if not company:
-                return {'error': 'Company not found'}, 404
-
+            company, error, status = get_or_404(Company, id, 'Company not found')
+            if error:
+                return error, status
+            
             data = request.get_json()
-            for field in ['name', 'email', 'logo_url', 'is_approved']:
-                if field in data:
-                    setattr(company, field, data[field])
+            update_object(company, data, ['name', 'email', 'logo_url', 'is_approved'])
             db.session.commit()
+            
+            # send approval notification email
             if company.is_approved:
-                send_email(
-                    to_email=company.email,
-                    subject="Company Approved",
-                    message=f"Congratulations {company.name}, your company has been approved."
-                )
+                email_subject = "Company Approved"
+                email_message = f"Congratulations {company.name}, your company has been approved."
             else:
-                send_email(
-                    to_email=company.email,
-                    subject="Approval Withheld",
-                    message=f"Hi {company.name}, your company's approval has been withheld. Please contact support."
-                )
-
-            return company.to_dict(only=('id', 'name', 'email', 'logo_url', 'is_approved')), 200
-        except Exception as e:
-            return {'error': str(e)}, 400    
-    @jwt_required()
-    def delete(self, id):
-        try:
-            company = Company.query.get(id)
-            if not company:
-                return {'error': 'Company not found'}, 404
-
-            db.session.delete(company)
-            db.session.commit()
-            send_email(
-            to_email=company.email,
-            subject="Company Account Deleted",
-            message=f"Dear {company.name}, your company has been deleted from our system."
-            )
-            return None, 204 
-        except Exception as e:
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def get(self):
-        try:
-            name = request.args.get('name')
-            company = Company.query.filter_by(name=name).first()    
-            if not company:
-                return {'error': 'Company not found'}, 404
+                email_subject = "Approval Withheld"
+                email_message = f"Hi {company.name}, your company's approval has been withheld. Please contact support."
+            
+            send_email(company.email, email_subject, email_message)
+            
             return company.to_dict(only=('id', 'name', 'email', 'logo_url', 'is_approved')), 200
         except Exception as e:
             return {'error': str(e)}, 400
-class GetAllCompanies(Resource):
-    @jwt_required()
-    def get(self):
-        try:
-            companies = Company.query.all()
-            if not companies:
-                return [],200
-            return [c.to_dict(only=('id', 'name', 'email', 'logo_url', 'is_approved')) for c in companies], 200
-        except Exception as e:  
-            return {'error': str(e)}, 400
 
 
-class UserSignup(Resource):
+class GetAllCompanies(BaseListResource):
+    model = Company
+    serialize_fields = ('id', 'name', 'email', 'logo_url', 'is_approved')
+
+
+# ==================== USER RESOURCES ====================
+
+class UserSignup(BaseResource):
+    model = User
+    allowed_fields = ['username', 'email', 'role', 'company_id', 'department_id']
+    serialize_fields = ('id', 'username', 'email', 'role', 'company_id', 'department_id')
+    name_field = 'username'
+    
     def post(self):
+        """create new user account"""
         try:
             data = get_json_data('username', 'password', 'email', 'role')
+            
             user = User(
                 username=data['username'],
                 email=data['email'],
@@ -136,124 +219,87 @@ class UserSignup(Resource):
                 department_id=data.get('department_id'),
             )
             user.hash_password = data['password']
+            
             db.session.add(user)
             db.session.commit()
-            send_email(
-                to_email=user.email,
-                subject="Welcome to Our Platform",
-                message=f"""Hello {user.username}, your account has been created successfully.
+            
+            # send welcome email
+            welcome_message = f"""Hello {user.username}, your account has been created successfully.
 
             Kindly contact your company admin to guide you on how to login and use the platform.
 
             Thank you for joining us — can't wait to help you streamline your assets!"""
-            )
-            return user.to_dict(only=('id', 'username', 'email', 'role','company_id','department_id')), 201
+            
+            send_email(user.email, "Welcome to Our Platform", welcome_message)
+            
+            return user.to_dict(only=self.serialize_fields), 201
+        except ValueError as e:
+            return {'error': str(e)}, 400
         except Exception as e:
             return {'error': str(e)}, 400
+    
     @jwt_required()
     def patch(self, id):
+        """update user with password handling"""
         try:
-            user = User.query.get(id)
-            if not user:
-                return {'error': 'User not found'}, 404
-
+            user, error, status = get_or_404(User, id, 'User not found')
+            if error:
+                return error, status
+            
             data = request.get_json()
-            for field in ['username', 'email', 'role', 'company_id', 'department_id']:
-                if field in data:
-                    setattr(user, field, data[field])
+            update_object(user, data, self.allowed_fields)
+            
             if 'password' in data:
                 user.hash_password = data['password']
+            
             db.session.commit()
-            return user.to_dict(only=('id', 'username', 'email', 'role','company_id','department_id')), 200
-        except Exception as e:
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def delete(self, id):
-        try:
-            user = User.query.get(id)
-            if not user:
-                return {'error': 'User not found'}, 404
-            db.session.delete(user)
-            db.session.commit()
-            return None, 204 
-        except Exception as e:      
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def get(self):
-        try:
-            username = request.args.get('username')
-            user = User.query.filter_by(username=username).first()
-            if not user:
-                return {'error': 'User not found'}, 404
-            return user.to_dict(only=('id', 'username', 'email', 'role','company_id','department_id')), 200
-        except Exception as e:  
-            return {'error': str(e)}, 400
-class GetAllUsers(Resource):
-    def get(self):
-        try:
-            users = User.query.all()
-            if not users:
-                return [], 200
-            return [user.to_dict(only=('id', 'username', 'email', 'role','company_id','department_id')) for user in users], 200
+            return user.to_dict(only=self.serialize_fields), 200
         except Exception as e:
             return {'error': str(e)}, 400
 
 
-class DepartmentResource(Resource):
+class GetAllUsers(BaseListResource):
+    model = User
+    serialize_fields = ('id', 'username', 'email', 'role', 'company_id', 'department_id')
+
+
+# ==================== DEPARTMENT RESOURCES ====================
+
+class DepartmentResource(BaseResource):
+    model = Department
+    allowed_fields = ['name', 'company_id']
+    serialize_fields = ('id', 'name', 'company_id')
+    
     @jwt_required()
     def post(self):
+        """create new department"""
         try:
             data = get_json_data('name', 'company_id')
             dept = Department(name=data['name'], company_id=data['company_id'])
             db.session.add(dept)
             db.session.commit()
-            return dept.to_dict(only=('id','name','company_id')), 201
-        except Exception as e:
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def delete(self, id):
-        try:
-            dept = Department.query.get(id)
-            if not dept:
-                return {'error': 'Department not found'}, 404
-            db.session.delete(dept)
-            db.session.commit()
-            return None, 204 
-        except Exception as e:
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def get(self):
-        try:
-            name = request.args.get('name')
-            dept = Department.query.filter_by(name=name).first()
-            if not dept:
-                return {'error': 'Department not found'}, 404
-            return dept.to_dict(only=('id','name','company_id')), 200
-        except Exception as e:  
-            return {'error': str(e)}, 400
-class GetAllDepartments(Resource):
-    @jwt_required()
-    def get(self):
-        try:
-            departments = Department.query.all()
-            if not departments:
-                return [], 200
-            return [dept.to_dict(only=('id','name','company_id')) for dept in departments], 200
+            return dept.to_dict(only=self.serialize_fields), 201
         except Exception as e:
             return {'error': str(e)}, 400
 
+
+class GetAllDepartments(BaseListResource):
+    model = Department
+    serialize_fields = ('id', 'name', 'company_id')
+
+
+# ==================== ASSET RESOURCES ====================
 
 class CompanyAssetResource(Resource):
     def post(self):
+        """create company asset with image upload"""
         try:
             name = request.form.get('name')
-            category = request.form.get('category') 
-            image_file = request.files.get('image_url')
+            category = request.form.get('category')
             company_id = request.form.get('company_id')
-            if not image_file:
-                return {'error': 'Image file is required'}, 400
-            upload_result = cloudinary.uploader.upload(image_file)
-            image_url = upload_result.get('secure_url')
+            
+            image_url = upload_file('image_url', 'Image file is required')
+            
             asset = Asset(
                 name=name,
                 category=category,
@@ -262,58 +308,46 @@ class CompanyAssetResource(Resource):
             )
             db.session.add(asset)
             db.session.commit()
-            return asset.to_dict(only=('id','name','category','image_url','company_id')), 201
+            
+            return asset.to_dict(only=('id', 'name', 'category', 'image_url', 'company_id')), 201
+        except ValueError as e:
+            return {'error': str(e)}, 400
         except Exception as e:
             return {'error': str(e)}, 400
-    @jwt_required()
-    def patch(self, id):
-        try:
-            asset = Asset.query.get(id)
-            if not asset:
-                return {'error': 'Asset not found'}, 404
-            data = request.get_json()
-            for field in ['name', 'category']:
-                if field in data:
-                    setattr(asset, field, data[field])
-            db.session.commit()
-            return asset.to_dict(only=('id','name','category','image_url','company_id')), 200
-        except Exception as e:
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def delete(self, id):
-        try:
-            asset = Asset.query.get(id)
-            if not asset:
-                return {'error': 'Asset not found'}, 404
-            db.session.delete(asset)
-            db.session.commit()
-            return None, 204 
-        except Exception as e:
-            return {'error': str(e)}, 400
+    
     def get(self):
+        """get assets by company name or all assets"""
         try:
-            name = request.args.get('name')
-            if name:
-                company = Company.query.filter_by(name=name).first()
+            company_name = request.args.get('name')
+            
+            if company_name:
+                company = Company.query.filter_by(name=company_name).first()
                 if not company:
                     return {'error': 'Company not found'}, 404
                 assets = company.assets
             else:
-                # Return all company assets if no name specified
                 assets = Asset.query.all()
-
+            
             if not assets:
-                return [],200  
-            return [asset.to_dict(only=('id','name','category','image_url','company_id')) for asset in assets], 200
+                return [], 200
+            
+            return [asset.to_dict(
+                only=('id', 'name', 'category', 'image_url', 'company_id')
+            ) for asset in assets], 200
         except Exception as e:
-            return {'error': str(e)}, 400   
-    
+            return {'error': str(e)}, 400
 
-class DepartmentAssetResource(Resource):
+
+class DepartmentAssetResource(BaseResource):
+    model = DepartmentalAsset
+    allowed_fields = ['name', 'category', 'image_url']
+    serialize_fields = ('id', 'name', 'category', 'image_url', 'company_id', 'department_id')
+    
     @jwt_required()
     def post(self):
+        """create department asset"""
         try:
-            data = get_json_data('name', 'category','image_url','company_id', 'department_id')
+            data = get_json_data('name', 'category', 'company_id', 'department_id')
             d_asset = DepartmentalAsset(
                 name=data['name'],
                 category=data['category'],
@@ -323,57 +357,41 @@ class DepartmentAssetResource(Resource):
             )
             db.session.add(d_asset)
             db.session.commit()
-            return d_asset.to_dict(only=('id','name','category','image_url','company_id','department_id')), 201
+            return d_asset.to_dict(only=self.serialize_fields), 201
         except Exception as e:
             return {'error': str(e)}, 400
-    @jwt_required()
-    def patch(self, id):
-        try:
-            d_asset = DepartmentalAsset.query.get(id)
-            if not d_asset:
-                return {'error': 'Department asset not found'}, 404
-            data = request.get_json()
-            for field in ['name', 'category', 'image_url']:
-                if field in data:
-                    setattr(d_asset, field, data[field])
-            db.session.commit()
-            return d_asset.to_dict(only=('id','name','category','image_url','company_id','department_id')), 200
-        except Exception as e:
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def delete(self, id):
-        try:
-            d_asset = DepartmentalAsset.query.get(id)
-            if not d_asset:
-                return {'error': 'Department asset not found'}, 404
-            db.session.delete(d_asset)
-            db.session.commit()
-            return None, 204 
-        except Exception as e:
-            return {'error': str(e)}, 400
+    
     def get(self):
+        """get assets by department name or all department assets"""
         try:
-            name = request.args.get('name')
-            if name:
-                department = Department.query.filter_by(name=name).first()
+            dept_name = request.args.get('name')
+            
+            if dept_name:
+                department = Department.query.filter_by(name=dept_name).first()
                 if not department:
                     return {'error': 'Department not found'}, 404
                 assets = department.assets
             else:
-                # Return all department assets if no name specified
                 assets = DepartmentalAsset.query.all()
-
+            
             if not assets:
                 return [], 200
-            return [asset.to_dict(only=('id','name','category','image_url','company_id','department_id')) for asset in assets], 200
+            
+            return [asset.to_dict(only=self.serialize_fields) for asset in assets], 200
         except Exception as e:
             return {'error': str(e)}, 400
+
+
+class UserAssetResource(BaseResource):
+    model = AsignedAsset
+    allowed_fields = ['name', 'category', 'image_url']
+    serialize_fields = ('id', 'name', 'category', 'image_url', 'company_id', 'user_id')
     
-class UserAssetResource(Resource):
     @jwt_required()
     def post(self):
+        """assign asset to user"""
         try:
-            data = get_json_data('name', 'category','image_url', 'user_id', 'company_id')
+            data = get_json_data('name', 'category', 'user_id', 'company_id')
             assigned = AsignedAsset(
                 name=data['name'],
                 category=data['category'],
@@ -383,242 +401,190 @@ class UserAssetResource(Resource):
             )
             db.session.add(assigned)
             db.session.commit()
-            return assigned.to_dict(only=('id','name','category','image_url','company_id','user_id')), 201
-        except Exception as e:
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def patch(self, id):
-        try:
-            asset = AsignedAsset.query.get(id)
-            if not asset:
-                return {'error': 'User asset not found'}, 404
-            data = request.get_json()
-            for field in ['name', 'category','image_url']:
-                if field in data:
-                    setattr(asset, field, data[field])
-            db.session.commit()
-            return asset.to_dict(only=('id','name','category','image_url','company_id','user_id')), 200
-        except Exception as e:
-            return {'error': str(e)}, 400
-    @jwt_required()
-    def delete(self, id):
-        try:
-            asset = AsignedAsset.query.get(id)
-            if not asset:
-                return {'error': 'User asset not found'}, 404
-            db.session.delete(asset)
-            db.session.commit()
-            return None, 204 
-        except Exception as e:  
-            return {'error': str(e)}, 400
-    def get(self):
-        try:
-            username = request.args.get('username')
-            if not username:
-                return {'error': 'Username is required'}, 400
-
-            user = User.query.filter_by(username=username).first()
-            if not user:
-                return {'error': 'User not found'}, 404
-
-            assets = user.asigned_assets
-            if not assets:
-                return [], 200
-
-            return [asset.to_dict(only=(
-                'id', 'name', 'category', 'image_url', 'company_id', 'user_id'
-            )) for asset in assets], 200
-
-        except Exception as e:
-            import traceback
-            print("Unexpected error:", traceback.format_exc())
-            return {'error': str(e)}, 400
-class AllUserAssets(Resource):
-    @jwt_required()
-    def get(self):
-        try:
-            assets = AsignedAsset.query.all()
-            if not assets:
-                return [], 200
-            return [asset.to_dict(only=('id','name','category','image_url','company_id','user_id')) for asset in assets], 200
+            return assigned.to_dict(only=self.serialize_fields), 201
         except Exception as e:
             return {'error': str(e)}, 400
 
+
+class AllUserAssets(BaseListResource):
+    model = AsignedAsset
+    serialize_fields = ('id', 'name', 'category', 'image_url', 'company_id', 'user_id')
+
+
+# ==================== REQUEST RESOURCES ====================
 
 class RequestAssetResource(Resource):
-    @jwt_required()  # Requires JWT authentication
+    @jwt_required()
     def post(self):
+        """create new asset request"""
         try:
-            # Get and validate input data
-            data = request.get_json()
-            if not data:
-                return {'error': 'No JSON data provided'}, 400
-
-            # Get current user from JWT token
+            data = request.get_json() or {}
+            
+            if not data.get('reason'):
+                return {'error': 'Reason is required'}, 400
+            if not data.get('request_type'):
+                return {'error': 'Request type is required'}, 400
+            
             current_user_id = get_jwt_identity()
             current_user = User.query.get(current_user_id)
             
             if not current_user:
                 return {'error': 'User not found'}, 404
-
-            # Validate required fields
-            if not data.get('reason'):
-                return {'error': 'Reason is required'}, 400
-            if not data.get('request_type'):
-                return {'error': 'Request type is required'}, 400
-
-            # Create new request
+            
             new_request = Request(
                 reason=data['reason'],
                 quantity=data.get('quantity', 1),
                 urgency=data.get('urgency', 'medium'),
                 request_type=data['request_type'],
-                user_id=current_user.id,  # Proper user assignment
-                status='pending'  # Default status
+                user_id=current_user.id,
+                status='pending'
             )
-
+            
             db.session.add(new_request)
             db.session.commit()
-
-            # Return created request with serialized fields
+            
             return new_request.to_dict(only=(
-                'id',
-                'reason',
-                'quantity',
-                'urgency',
-                'request_type',
-                'status',
-                'user_id'
+                'id', 'reason', 'quantity', 'urgency', 
+                'request_type', 'status', 'user_id'
             )), 201
-
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Request creation failed: {str(e)}")
+            current_app.logger.error(f"Request creation failed: {e}")
             return {'error': 'Failed to create request'}, 500
-
+    
     def get(self):
+        """get requests by username"""
         try:
             username = request.args.get('username')
             if not username:
                 return {'error': 'Username parameter is required'}, 400
-                
+            
             user = User.query.filter_by(username=username).first()
             if not user:
                 return {'error': 'User not found'}, 404
-
+            
             requests = Request.query.filter_by(user_id=user.id).all()
             return [req.to_dict(only=(
-                'id',
-                'reason',
-                'quantity',
-                'urgency',
-                'request_type',
-                'status',
-                'user_id'
+                'id', 'reason', 'quantity', 'urgency', 
+                'request_type', 'status', 'user_id'
             )) for req in requests], 200
-
         except Exception as e:
-            current_app.logger.error(f"Request retrieval failed: {str(e)}")
+            current_app.logger.error(f"Request retrieval failed: {e}")
             return {'error': 'Failed to retrieve requests'}, 500
+    
     def patch(self, id):
+        """update request status"""
         try:
-            req = Request.query.get(id)
-            if not req:
-                return {'error': 'Request not found'}, 404
-
+            req, error, status = get_or_404(Request, id, 'Request not found')
+            if error:
+                return error, status
+            
             data = request.get_json()
             if 'status' in data:
-                req.status = data['status']  
-
+                req.status = data['status']
+            
             db.session.commit()
-            return req.to_dict(only=('id', 'reason', 'quantity', 'urgency', 'request_type', 'status', 'user_id')), 200  # ✅ Return the correct object
+            return req.to_dict(only=(
+                'id', 'reason', 'quantity', 'urgency', 
+                'request_type', 'status', 'user_id'
+            )), 200
         except Exception as e:
             return {'error': str(e)}, 400
+    
     def delete(self, id):
+        """delete request"""
         try:
-            req = Request.query.get(id)
-            if not req:
-                return {'error': 'Request not found'}, 404
+            req, error, status = get_or_404(Request, id, 'Request not found')
+            if error:
+                return error, status
+            
             db.session.delete(req)
             db.session.commit()
-            return None, 204 
+            return None, 204
         except Exception as e:
             return {'error': str(e)}, 400
-class AllRequests(Resource):
-    def get(self):
-        try:
-            requests = Request.query.all()
-            if not requests:
-                return [], 200
-            return [request.to_dict(only=('id','reason','quantity','urgency','request_type','status','user_id')) for request in requests], 200
-        except Exception as e:
-            return {'error': str(e)}, 400
+
+
+class AllRequests(BaseListResource):
+    model = Request
+    serialize_fields = ('id', 'reason', 'quantity', 'urgency', 'request_type', 'status', 'user_id')
+
+
+# ==================== AUTHENTICATION RESOURCES ====================
 
 class UserLogin(Resource):
     def post(self):
+        """authenticate user and return tokens"""
         try:
             data = get_json_data('username', 'password')
             user = User.query.filter_by(username=data['username']).first()
-
+            
             if user and user.authenticate(data['password']):
-                if user.role != 'super_admin':
-                    if not user.company or not user.company.is_approved:
-                        return {'error': 'Company not approved'}, 403
-
-                access_token = create_access_token(identity=user.id, additional_claims={'role': user.role})
+                # check company approval for non-super admins
+                if user.role != 'super_admin' and (
+                    not user.company or not user.company.is_approved
+                ):
+                    return {'error': 'Company not approved'}, 403
+                
+                # create tokens
+                access_token = create_access_token(
+                    identity=user.id, 
+                    additional_claims={'role': user.role}
+                )
                 refresh_token = create_refresh_token(identity=user.id)
-
-                # ✅ Set refresh_token as HttpOnly cookie
+                
+                # build response with refresh token cookie
                 response = make_response({
-                    'refresh_token': refresh_token,
                     'access_token': access_token,
-                    'user': user.to_dict(only=('id', 'username', 'email', 'role','company_id','department_id'))
+                    'user': user.to_dict(only=(
+                        'id', 'username', 'email', 'role', 
+                        'company_id', 'department_id'
+                    ))
                 })
+                
                 response.set_cookie(
-                    'refresh_token_cookie', refresh_token,
+                    'refresh_token_cookie',
+                    refresh_token,
                     httponly=True,
-                    secure=False,  # Set to True in production (HTTPS)
+                    secure=False,  # set to True in production
                     samesite='Lax'
                 )
+                
                 return response
-
+            
             return {'error': 'Invalid username or password'}, 401
         except Exception as e:
             return {'error': str(e)}, 400
+
+
 class SuperAdminResource(Resource):
-    # def post(self):
-    #     try:
-    #         data = get_json_data('username', 'password')
-    #         superAdmin = SuperAdmin(
-    #             username=data['username'],   
-    #         )
-    #         superAdmin.hash_password = data['password']
-    #         db.session.add(superAdmin)
-    #         db.session.commit()
-    #         return superAdmin.to_dict(), 201
-    #     except Exception as e:
-    #         return {'error': str(e)}, 400
     @jwt_required()
     def patch(self):
+        """toggle company approval status"""
         try:
             data = get_json_data('company_name')
             company = Company.query.filter_by(name=data['company_name']).first()
+            
             if not company:
                 return {'error': 'Company not found'}, 404
+            
             company.is_approved = not company.is_approved
             db.session.commit()
+            
             status = "approved" if company.is_approved else "disapproved"
             return {'message': f'Company {status} successfully'}, 200
         except Exception as e:
             return {'error': str(e)}, 400
 
+
 class CompaniesGrouped(Resource):
     @jwt_required()
     def get(self):
+        """get companies grouped by approval status"""
         try:
             approved = Company.query.filter_by(is_approved=True).all()
             pending = Company.query.filter_by(is_approved=False).all()
-
+            
             return {
                 'approved_companies': [
                     {
@@ -637,17 +603,19 @@ class CompaniesGrouped(Resource):
                     } for c in pending
                 ] if pending else []
             }, 200
-
         except Exception as e:
+            current_app.logger.error(f"Companies grouping failed: {e}")
             return {'error': str(e)}, 500
+
+
 class RefreshTokenResource(Resource):
-    # @jwt_required(refresh=True)
     def post(self):
+        """refresh access token using refresh token from cookie"""
         try:
             verify_jwt_in_request(refresh=True, locations=["cookies"])
             current_user_id = get_jwt_identity()
             new_access_token = create_access_token(identity=current_user_id)
-            return {'access_token': new_access_token}, 200 
+            return {'access_token': new_access_token}, 200
         except Exception as e:
-            print("Error refreshing token:", e)
+            current_app.logger.error(f"Token refresh failed: {e}")
             return {'error': str(e)}, 401
